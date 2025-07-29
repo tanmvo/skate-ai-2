@@ -40,6 +40,10 @@ model Document {
   studyId       String
   study         Study        @relation(fields: [studyId], references: [id], onDelete: Cascade)
   chunks        DocumentChunk[]
+  // File storage tracking
+  storagePath   String?      // Full path to file on disk or blob storage
+  storageUrl    String?      // Serving URL for the file
+  storageType   String       @default("filesystem") // "filesystem" | "vercel-blob"
 }
 
 model DocumentChunk {

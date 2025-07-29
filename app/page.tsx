@@ -4,41 +4,34 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Microscope } from "lucide-react";
 import { StudyCard } from "@/components/study/StudyCard";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-const mockStudies = [
-  {
-    id: "1",
-    name: "User Onboarding",
-    createdAt: new Date("2024-01-15"),
-    author: "tanmvo",
-    documentCount: 5,
-  },
-  {
-    id: "2", 
-    name: "Competitor Analysis",
-    createdAt: new Date("2024-01-10"),
-    author: "tanmvo",
-    documentCount: 8,
-  },
-];
+import { useStudies } from "@/lib/hooks/useStudies";
 
 export default function StudiesPage() {
-  const [studies, setStudies] = useState(mockStudies);
+  const [creating, setCreating] = useState(false);
+  const router = useRouter();
+  const { studies, isLoading, createStudy, deleteStudy } = useStudies();
 
-  const handleCreateStudy = () => {
-    const newStudy = {
-      id: Date.now().toString(),
-      name: "New study",
-      createdAt: new Date(),
-      author: "tanmvo",
-      documentCount: 0,
-    };
-    setStudies([newStudy, ...studies]);
+  const handleCreateStudy = async () => {
+    setCreating(true);
+    try {
+      const newStudy = await createStudy('New Study');
+      // Navigate to the new study
+      router.push(`/study/${newStudy.id}`);
+    } catch {
+      // Error handling is done in the hook
+    } finally {
+      setCreating(false);
+    }
   };
 
-  const handleDeleteStudy = (studyId: string) => {
-    setStudies(studies.filter(study => study.id !== studyId));
+  const handleDeleteStudy = async (studyId: string) => {
+    try {
+      await deleteStudy(studyId);
+    } catch {
+      // Error handling is done in the hook
+    }
   };
 
   return (
@@ -49,9 +42,9 @@ export default function StudiesPage() {
             <Microscope className="h-6 w-6" />
             <h1 className="text-xl font-semibold">Skate AI</h1>
           </div>
-          <Button onClick={handleCreateStudy} className="gap-2">
+          <Button onClick={handleCreateStudy} disabled={creating} className="gap-2">
             <Plus className="h-4 w-4" />
-            Create
+            {creating ? 'Creating...' : 'Create'}
           </Button>
         </div>
       </header>
@@ -64,29 +57,47 @@ export default function StudiesPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {studies.map((study) => (
-            <StudyCard
-              key={study.id}
-              study={study}
-              onDelete={() => handleDeleteStudy(study.id)}
-            />
-          ))}
-          
-          {studies.length === 0 && (
-            <Card className="p-8 text-center col-span-full border-dashed">
-              <Microscope className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">No studies yet</h3>
-              <p className="text-muted-foreground mb-4">
-                Create your first research study to get started
-              </p>
-              <Button onClick={handleCreateStudy} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Create Study
-              </Button>
-            </Card>
-          )}
-        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[1, 2, 3].map((i) => (
+              <Card key={i} className="p-6 animate-pulse">
+                <div className="h-4 bg-muted rounded w-3/4 mb-3"></div>
+                <div className="h-3 bg-muted rounded w-1/2 mb-2"></div>
+                <div className="h-3 bg-muted rounded w-1/4"></div>
+              </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {studies.map((study) => (
+              <StudyCard
+                key={study.id}
+                study={{
+                  id: study.id,
+                  name: study.name,
+                  createdAt: new Date(study.createdAt),
+                  author: "You",
+                  documentCount: study._count.documents,
+                }}
+                onDelete={() => handleDeleteStudy(study.id)}
+              />
+            ))}
+            
+            {studies.length === 0 && (
+              <Card className="p-8 text-center col-span-full border-dashed">
+                <Microscope className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+                <h3 className="text-lg font-medium mb-2">No studies yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Create your first research study to get started
+                </p>
+                <Button onClick={handleCreateStudy} disabled={creating} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  {creating ? 'Creating...' : 'Create Study'}
+                </Button>
+              </Card>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

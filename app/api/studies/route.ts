@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserId } from "@/lib/auth";
 
 export async function GET() {
   try {
+    const userId = getCurrentUserId();
+    
     const studies = await prisma.study.findMany({
+      where: {
+        userId,
+      },
       include: {
         _count: {
           select: {
@@ -38,9 +44,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const userId = getCurrentUserId();
+
     const study = await prisma.study.create({
       data: {
         name: name.trim(),
+        userId,
       },
       include: {
         _count: {

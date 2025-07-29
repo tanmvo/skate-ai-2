@@ -8,6 +8,28 @@ This is a Next.js application for **Skate AI** - a research platform that helps 
 - `npm run build` - Build for production
 - `npm run start` - Start production server
 - `npm run lint` - Run ESLint
+- `npm run test` - Run tests in watch mode
+- `npm run test:run` - Run tests once
+- `npm run db:init` - Create default user in database
+- `npm run db:reset` - Reset database and recreate user
+- `npm run dev:clean-files` - Remove orphaned development files
+- `npm run dev:clean-db` - Remove orphaned database records
+- `npm run dev:clean-all` - Complete cleanup (files + database)
+
+## Environment Setup
+Required environment variables:
+```bash
+# Database
+POSTGRES_PRISMA_URL="postgresql://..."
+POSTGRES_URL_NON_POOLING="postgresql://..."
+
+# AI Services
+VOYAGE_API_KEY="your_voyage_ai_api_key"
+ANTHROPIC_API_KEY="your_claude_api_key" # (Phase 2.3)
+
+# File Storage (Production)
+BLOB_READ_WRITE_TOKEN="your_vercel_blob_token" # Optional
+```
 
 ## Key Technologies
 - Next.js 15.4.4
@@ -18,12 +40,15 @@ This is a Next.js application for **Skate AI** - a research platform that helps 
 - ShadCN UI components
 - SWR for client-side data fetching
 - ESLint 9
+- Voyage AI for document embeddings (`voyage-large-2`)
 - Additional UI libraries: class-variance-authority, clsx, lucide-react, tailwind-merge
 
 ## Database
-- Uses Prisma ORM
+- Uses Prisma ORM with PostgreSQL 
 - Schema located at `prisma/schema.prisma`
 - Client configuration in `lib/prisma.ts`
+- User authentication via `lib/auth.ts` (single-user MVP mode)
+- Default user ID: `usr_mvp_dev_2025` (stored in `lib/constants.ts`)
 
 ## Project Structure
 
@@ -33,10 +58,19 @@ This is a Next.js application for **Skate AI** - a research platform that helps 
   - `api/` - Studies, upload, chat, documents endpoints
 - `components/` - UI components (organize by feature: study, document, chat)
 - `lib/` - Utilities (AI/embeddings, document processing, database helpers)
+  - `constants.ts` - App constants including default user ID
+  - `auth.ts` - User authentication and ownership validation
+  - `data.ts` - Database helper functions with user scoping
+  - `document-processing.ts` - Text extraction (PDF, DOCX, TXT)
+  - `document-chunking.ts` - Text chunking with overlap
+  - `voyage-embeddings.ts` - Voyage AI integration and embedding serialization
+  - `vector-search.ts` - Cosine similarity and semantic search
   - `hooks/` - Custom React hooks (useStudies, useDocuments, useChat)
   - `contexts/` - React contexts (StudyContext, ChatContext, DocumentContext)
 - `prisma/` - Database schema and models
 - `prd/` - Product requirements for current features
+- `dev-uploads/` - Development file storage (gitignored)
+- `scripts/` - Database initialization and cleanup utilities
 
 **Organization Rule:** Group files by feature within directories. Use descriptive names like `voyage-embeddings.ts` or `document-text-extractor.ts` for easy discovery. Use SWR for all client-side database fetching operations.
 
@@ -46,6 +80,22 @@ This is a Next.js application for **Skate AI** - a research platform that helps 
 - **Server Components:** Use Prisma directly in async components for initial page loads (`lib/data.ts` functions)
 - **Client Components:** Use SWR for real-time updates, user interactions, and frequently changing data
 - **Hybrid:** Server-side initial data + SWR fallbackData for optimal performance
+- **Security:** All database operations automatically scoped to current user via `lib/auth.ts`
+
+**File Storage & Cleanup:**
+- **Development:** Files stored in `dev-uploads/` (gitignored) with database path tracking
+- **Production:** Vercel Blob storage for uploaded documents  
+- **Storage Override:** Use `X-Storage-Type: filesystem|vercel-blob` header to override default
+- **Safety:** User-scoped cleanup commands protect shared production database
+- **Cleanup Options:** `--dry-run` for preview, `--yes` to skip confirmations
+
+**React Development Patterns:**
+- **Hooks First:** Custom hooks for stateful logic (useStudies, useDocuments, useChat)
+- **Context for Global State:** React Context for app-wide state (current study, user session, UI themes)
+- **Component Composition:** Break down complex components into smaller, reusable pieces
+- **Custom Hooks:** Data fetching, form state, file upload progress, real-time updates, local storage
+- **Context Providers:** Study context, user auth state, theme preferences, global loading states
+- **Avoid:** Class components, direct DOM manipulation, complex prop drilling
 
 ---
 
@@ -72,10 +122,10 @@ This is a Next.js application for **Skate AI** - a research platform that helps 
 - Document-aware context and cross-document analysis
 
 #### Technical Infrastructure
-- OpenAI embeddings for document retrieval
-- Claude integration for chat responses
+- Voyage AI embeddings for document retrieval (`voyage-large-2`)
+- Claude integration for chat responses (next phase)
 - Vector embeddings with document chunking
-- Unit testing setup (Jest/Vitest)
+- Unit testing setup (Vitest with 90+ tests)
 - Logging infrastructure & error tracking
 - Performance monitoring and observability
 

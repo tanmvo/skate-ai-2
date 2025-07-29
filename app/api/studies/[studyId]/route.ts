@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUserId, validateStudyOwnership } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
@@ -7,8 +8,22 @@ export async function GET(
 ) {
   const params = await context.params;
   try {
-    const study = await prisma.study.findUnique({
-      where: { id: params.studyId },
+    const userId = getCurrentUserId();
+    
+    // Validate user owns this study
+    const isOwner = await validateStudyOwnership(params.studyId);
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "Study not found" },
+        { status: 404 }
+      );
+    }
+
+    const study = await prisma.study.findFirst({
+      where: { 
+        id: params.studyId,
+        userId,
+      },
       include: {
         documents: {
           orderBy: { uploadedAt: "desc" },
@@ -57,9 +72,38 @@ export async function PUT(
       );
     }
 
-    const study = await prisma.study.update({
-      where: { id: params.studyId },
+    const userId = getCurrentUserId();
+    
+    // Validate user owns this study
+    const isOwner = await validateStudyOwnership(params.studyId);
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "Study not found" },
+        { status: 404 }
+      );
+    }
+
+    const study = await prisma.study.updateMany({
+      where: { 
+        id: params.studyId,
+        userId,
+      },
       data: { name: name.trim() },
+    });
+
+    if (study.count === 0) {
+      return NextResponse.json(
+        { error: "Study not found" },
+        { status: 404 }
+      );
+    }
+
+    // Fetch the updated study to return
+    const updatedStudy = await prisma.study.findFirst({
+      where: { 
+        id: params.studyId,
+        userId,
+      },
       include: {
         _count: {
           select: {
@@ -70,7 +114,7 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json(study);
+    return NextResponse.json(updatedStudy);
   } catch (error) {
     console.error("Error updating study:", error);
     return NextResponse.json(
@@ -86,9 +130,30 @@ export async function DELETE(
 ) {
   const params = await context.params;
   try {
-    await prisma.study.delete({
-      where: { id: params.studyId },
+    const userId = getCurrentUserId();
+    
+    // Validate user owns this study
+    const isOwner = await validateStudyOwnership(params.studyId);
+    if (!isOwner) {
+      return NextResponse.json(
+        { error: "Study not found" },
+        { status: 404 }
+      );
+    }
+
+    const result = await prisma.study.deleteMany({
+      where: { 
+        id: params.studyId,
+        userId,
+      },
     });
+
+    if (result.count === 0) {
+      return NextResponse.json(
+        { error: "Study not found" },
+        { status: 404 }
+      );
+    }
 
     return NextResponse.json({ message: "Study deleted successfully" });
   } catch (error) {

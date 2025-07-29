@@ -1,340 +1,295 @@
 # PRD: Skate AI MVP - Document Analysis & Chat Interface
 
 ## Overview
-Build a research platform that combines document upload with AI-powered chat, organized by research studies. Focus on validating the core researcher workflow: upload related documents to a study, then chat with AI to extract insights across those documents.
+AI research assistant that helps solo researchers analyze documents through organized studies. Core hypothesis: researchers want AI to analyze documents within specific research contexts, not just chat with random files.
 
 ## Core Features
 
-### 1. Study Management Interface
-**Purpose:** Test if researchers naturally organize documents into research projects
+### 1. Study Management
+- **Dashboard:** Grid of study cards with create/delete actions
+- **Study Cards:** Name, author, dropdown menu (⋮ for delete)
+- **Auto-creation:** New users get default "New study"
+- **Navigation:** Click card to enter study interface
 
-**Landing Page (/) - Studies Overview:**
-```
-┌─────────────────────────────────────────┐
-│  🔬 Skate AI                [+ Create]  │
-├─────────────────────────────────────────┤
-│  My Studies                             │
-│                                         │
-│  ┌─────────────────┐  ┌───────────────┐ │
-│  │ User Onboarding │⋮ │ New study     │⋮│
-│  │ by: tanmvo      │  │ by: tanmvo    │ │
-│  └─────────────────┘  └───────────────┘ │
-│                                         │
-│  ┌─────────────────┐                    │
-│  │ Competitor      │⋮                   │
-│  │ Analysis        │                    │
-│  │ by: tanmvo      │                    │
-│  └─────────────────┘                    │
-└─────────────────────────────────────────┘
-```
+### 2. Document + Chat Interface
+**Layout:** Split view with documents (30%) and chat (70%)
 
-**Study Cards Include:**
-- Study name
-- Author name
-- Menu dropdown (⋮) with delete option
-- Click anywhere on card to enter study
+**Document Panel:**
+- Drag & drop upload for PDF, DOCX, TXT
+- Processing status: "Processing" → "Ready" → "Failed"
+- Document list with file names
 
-**Implementation:**
-- Auto-create default "New study" for new users
-- Create button in header creates new study with name "New study"
-- No modal required - direct creation and navigation
-- Menu dropdown contains: "Delete study" (with confirmation dialog)
-- All documents and chat are scoped to the current study
+**Chat Panel:**
+- Study-scoped chat history
+- Message input with streaming responses
+- Citations linking insights to source documents
 
-**User Flow:**
-1. **First Visit:** Land on studies overview, see auto-created "New study"
-2. **Create Study:** Click "+ Create" button, auto-creates "New study" and navigates there
-3. **Enter Study:** Click any study card to enter individual study interface
-4. **Delete Study:** Click menu dropdown → "Delete study" → confirmation dialog
-5. **Within Study:** Upload docs and chat as designed
-6. **Navigation:** Breadcrumb back to studies overview
+### 3. Document Processing
+**Pipeline:** Upload → Extract text → Chunk (1000 chars, 200 overlap) → Generate embeddings → Store
 
-### 2. Combined Upload + Chat Interface
+**Libraries:** pdf-parse (PDF), mammoth (DOCX), direct reading (TXT)
 
-**Layout:**
-```
-┌─────────────────────────────────────────┐
-│ 📚 Study: User Onboarding [▼]          │
-├─────────────────────────────────────────┤
-│  Documents (30%)    │  Chat (70%)       │
-│ ┌─────────────────┐ │ ┌───────────────┐ │
-│ │ + Upload Files  │ │ │ Chat History  │ │
-│ │                 │ │ │ ...           │ │
-│ │ 📄 interview1   │ │ │               │ │
-│ │ 📄 interview2   │ │ │               │ │
-│ │ 📄 notes.txt    │ │ │               │ │
-│ └─────────────────┘ │ └───────────────┘ │
-│                     │ ┌───────────────┐ │
-│                     │ │ [Type message]│ │
-│                     │ └───────────────┘ │
-└─────────────────────────────────────────┘
-```
+### 4. AI Chat Integration
+**Capabilities:**
+- Theme extraction from interviews
+- Cross-document pattern analysis
+- Quote finding and insight summarization
+- Document comparison
 
-**Document Panel (Left 30%):**
-- Drag & drop file upload area
-- List of uploaded documents with status indicators
-- Support: PDF, DOCX, TXT files
-- File processing status: "Processing..." → "Ready" → "Failed"
-
-**Chat Panel (Right 70%):**
-- Chat history for current study
-- Message input with send button
-- Streaming responses from Claude
-- Citation system showing source document/section
-
-### 3. Document Processing Pipeline
-
-**File Upload Flow:**
-1. User drops files or clicks upload
-2. Files stored using Vercel Blob (production)
-3. Text extraction based on file type:
-   - PDF: `pdf-parse` library
-   - DOCX: `mammoth` library  
-   - TXT: Direct text reading
-4. Text chunking (1000 chars, 200 char overlap)
-5. Generate Voyage AI embeddings for each chunk
-6. Store document metadata + chunks in database
-7. Update UI when processing complete
-
-**Supported File Types:**
-- PDF documents
-- Microsoft Word (.docx)
-- Plain text (.txt)
-
-### 4. AI-Powered Research Chat
-
-**Research-Specific Capabilities:**
-- "What are the main themes in these interviews?"
-- "Find quotes about user frustrations"
-- "Summarize key insights from these documents"
-- "What patterns do you see across interviews?"
-- "Compare themes between interview 1 and interview 3"
-
-**Technical Implementation:**
-- Voyage AI embeddings for document retrieval (`voyage-large-2`)
-- Claude Haiku for chat responses
-- Vector similarity search to find relevant document chunks
-- Include top 5 relevant chunks as context in Claude prompt
-- Stream responses for better UX
-
-**Response Quality Focus:**
-- Primary validation target: Are AI responses useful for research analysis?
-- Test with real research documents and questions
-- Measure response relevance, accuracy, and research value
-- Citation quality must allow tracing insights back to sources
-
-**Citation System:**
-- Show which document and section insights come from
-- Format: `"insight text" (Source: interview1.pdf, p.3)`
-- Clickable citations to highlight relevant text
+**Tech Stack:**
+- Voyage AI (`voyage-large-2`) for embeddings
+- Claude Haiku for responses
+- Vector search (cosine similarity, top 5 chunks)
+- Citation system with source references
 
 ## Technical Architecture
 
-### Frontend Structure
-```
-app/
-├── page.tsx                    # Studies overview/dashboard
-├── study/
-│   └── [studyId]/page.tsx     # Individual study interface
-├── components/
-│   ├── ui/                    # ShadCN UI components
-│   ├── StudyCard.tsx          # Study card with menu dropdown
-│   ├── StudyLayout.tsx        # Layout for individual study pages
-│   ├── DocumentPanel.tsx      # Left side: upload + doc list
-│   ├── ChatPanel.tsx          # Right side: chat interface
-│   ├── FileUpload.tsx         # Drag & drop component
-│   └── MessageList.tsx        # Chat messages with citations
-└── api/
-    ├── studies/
-    │   ├── route.ts           # GET all studies, POST new study
-    │   └── [studyId]/route.ts # GET/PUT/DELETE individual study
-    ├── upload/route.ts        # File upload + processing
-    ├── chat/route.ts          # Chat with streaming
-    └── documents/route.ts     # Document management
-```
+### Key Components
+- **Next.js 15.4** with App Router
+- **Database:** PostgreSQL with Prisma ORM
+- **Storage:** Vercel Blob (production) / filesystem (development)
+- **AI:** Voyage AI embeddings + Claude Haiku chat
+- **UI:** ShadCN + Tailwind CSS
 
-### Database Schema
-```prisma
-model Study {
-  id          String      @id @default(cuid())
-  name        String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  documents   Document[]
-  messages    ChatMessage[]
-}
+### Database Models
+- **Study:** Container for documents and chat messages
+- **Document:** Files with processing status and extracted text
+- **DocumentChunk:** Text chunks with vector embeddings
+- **ChatMessage:** User/AI conversations with citations
 
-model Document {
-  id            String       @id @default(cuid())
-  fileName      String
-  fileType      String
-  fileSize      Int
-  status        ProcessingStatus @default(PROCESSING)
-  extractedText String?      @db.Text
-  uploadedAt    DateTime     @default(now())
-  studyId       String
-  study         Study        @relation(fields: [studyId], references: [id])
-  chunks        DocumentChunk[]
-}
+### API Routes
+- `/api/studies` - Study CRUD operations
+- `/api/upload` - File processing pipeline  
+- `/api/chat` - Streaming chat with document context
 
-model DocumentChunk {
-  id           String    @id @default(cuid())
-  content      String    @db.Text
-  chunkIndex   Int
-  embedding    Bytes?    
-  documentId   String
-  document     Document  @relation(fields: [documentId], references: [id])
-}
-
-model ChatMessage {
-  id            String      @id @default(cuid())
-  role          MessageRole
-  content       String      @db.Text
-  citations     Json?       
-  timestamp     DateTime    @default(now())
-  studyId       String
-  study         Study       @relation(fields: [studyId], references: [id])
-}
-
-enum ProcessingStatus {
-  PROCESSING
-  READY
-  FAILED
-}
-
-enum MessageRole {
-  USER
-  ASSISTANT
-}
-```
-
-### Storage Strategy
-**Development:** File system storage in `/uploads` directory
-**Production:** Vercel Blob (5GB free tier sufficient for MVP)
-
-**Migration Path:**
-```typescript
-// Development
-await writeFile(path.join('./uploads', fileName), buffer);
-
-// Production  
-await put(fileName, buffer, { access: 'private' });
-```
-
-### AI Integration
-**Voyage AI Embeddings:**
-- Model: `voyage-large-2` (optimized for retrieval tasks)
-- Generate embeddings for each document chunk
-- Store as binary in database for simple vector search
-- Cost-effective alternative with high quality for research documents
-
-**Claude Integration:**
-- Model: `claude-3-haiku-20240307` 
-- Include relevant document chunks as context
-- Stream responses for better UX
-- Extract citations from responses
-
-**Vector Search:**
-- Cosine similarity between query embedding and chunk embeddings
-- Return top 5 most relevant chunks as context
-- Simple in-memory implementation for MVP
-
-## Testing & Infrastructure
-
-### Unit Testing (Vitest)
-```typescript
-// Core functions to test:
-- extractTextFromPDF()
-- chunkText()
-- generateEmbedding()
-- findRelevantChunks()
-- cosineSimilarity()
-```
-
-### Integration Testing
-```typescript
-// API routes to test:
-- POST /api/upload (file processing)
-- POST /api/chat (chat with context)
-- GET /api/studies (study management)
-```
-
-### Logging Infrastructure
-```typescript
-// Structured logging for:
-- File upload events
-- Document processing status
-- Chat interactions
-- Error tracking
-- Performance metrics (response times)
-```
-
-### Error Tracking
-- Console logging for development
-- Structured JSON logs for production
-- Error boundary components for frontend crashes
-- API error handling with proper status codes
+## Security & Authentication
+- **MVP Mode:** Single user (`usr_mvp_dev_2025`) with ownership validation
+- **Data Isolation:** All operations scoped to authenticated user
+- **Commands:** `npm run db:init` (setup), `npm run db:reset` (cleanup)
 
 ## Success Metrics
+### Primary Goals
+- **Response Quality:** 70%+ useful AI responses
+- **Engagement:** 15+ messages per session
+- **Performance:** <3s chat responses, <30s document processing
 
-### User Behavior Validation
-- **Studies Usage:** Do users create multiple studies or stick to one?
-- **Document Organization:** Average documents per study
-- **Chat Engagement:** Average messages per session (target: 15+)
-- **Return Usage:** Do researchers come back multiple times?
+### User Validation
+- Multiple studies created per user
+- Cross-document analysis queries
+- Return usage patterns
 
-### Technical Performance
-- **Response Times:** <3 seconds for chat responses
-- **Processing Speed:** <30 seconds for document processing
-- **Error Rates:** <5% document processing failures
-- **Uptime:** 95%+ availability
+### Current Implementation Status
+✅ **Core MVP Ready:** Full document upload → processing → embedding → chat pipeline working
+✅ **Production Quality:** All components passing lint, tests, and build validation
+✅ **User Experience:** Seamless study creation, document upload, and AI chat functionality
+🎯 **Ready for User Testing:** Phase 2.3 completion enables real user validation
 
-### User Value Signals (Primary Focus)
-- **Response Quality:** 70%+ of responses rated useful by researchers
-- **Response Relevance:** AI answers address the actual research question asked
-- **Response Accuracy:** Insights are supported by the uploaded documents
-- **Citation Quality:** Researchers can trace insights back to specific sources
-- **Follow-up Questions:** Users ask multiple questions per session
-- **Cross-Document Queries:** Users ask about patterns across documents
-- **Time Savings:** Faster insight generation vs manual analysis
-- **Research Value:** Responses provide actionable insights for research work
+## Scope Boundaries
+❌ **Not Building:** Team collaboration, workflow automation, advanced exports, integrations, real-time features
 
-## What We're NOT Building
+## Implementation Roadmap
 
-- ❌ Automated insight generation on upload
-- ❌ Advanced export formats (CSV, presentations)
-- ❌ Team collaboration features
-- ❌ Workflow automation
-- ❌ Integrations with other tools
-- ❌ Complex study management (tags, sharing, etc.)
-- ❌ Advanced document annotation
-- ❌ Real-time collaboration
+### ✅ Phase 1: Foundation (COMPLETED)
+1. ✅ Set up database schema with User, Study, Document, DocumentChunk, ChatMessage models
+2. ✅ Create basic UI layout with studies dashboard and individual study interface
+3. ✅ Implement file upload component with drag & drop support
+4. ✅ Build document panel and chat panel components
+5. ✅ Set up ShadCN UI components and responsive design
+6. ✅ Create API routes for study management
+7. ✅ Deploy foundation to production with Vercel integration
 
-## Implementation Priority
+### ✅ Phase 1.5: Security & Authentication (COMPLETED)
+1. ✅ Create constants.ts file with default user ID (`usr_mvp_dev_2025`)
+2. ✅ Create default user in database via initialization script
+3. ✅ Update all API routes to validate user ownership before operations
+4. ✅ Update Prisma queries to filter by userId for data isolation
+5. ✅ Implement ownership validation functions (validateStudyOwnership, validateDocumentOwnership)
+6. ✅ Add database management commands (`npm run db:init`, `npm run db:reset`)
+7. ✅ Ensure all studies, documents, and chat messages are scoped to authenticated user
 
-### Week 1: Foundation
-1. Set up database schema
-2. Create basic UI layout with study selector
-3. Implement file upload with text extraction
-4. Build document list component
+### ✅ Phase 2: AI Integration
 
-### Week 2: AI Integration  
-1. Voyage AI embeddings integration
-2. Claude chat integration
-3. Vector search implementation
-4. Citation system
-5. Response quality testing with real research documents
+#### ✅ Phase 2.1: Document Processing Pipeline (Days 1-3) - **COMPLETED**
+1. ✅ **Sub-phase 2.1a:** File upload & storage system with user validation
+2. ✅ **Sub-phase 2.1b:** Text extraction engine (PDF, DOCX, TXT parsing)  
+3. ✅ **Sub-phase 2.1c:** Document chunking (1000 chars, 200 overlap) & integration
+4. ✅ **Testing:** End-to-end upload → extract → chunk → store pipeline
 
-### Week 3: Polish & Testing
-1. Streaming chat responses
-2. Error handling and loading states
-3. Unit and integration tests
-4. Performance optimization
+**Manual Testing Instructions:**
+```bash
+# 1. Start development server
+npm run dev
 
-### Week 4: User Testing
-1. Deploy to production
-2. Researcher testing sessions
-3. Usage analytics implementation
-4. Feedback collection and analysis
+# 2. Initialize database with default user
+npm run db:init
+
+# 3. Create a test study
+curl -X POST http://localhost:3000/api/studies \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test Study"}'
+
+# Response will include studyId like: "id":"cmdnif6540001pt06qc0gg7zj"
+
+# 4. Test file upload (replace STUDY_ID with actual ID from step 3)
+curl -X POST http://localhost:3000/api/upload \
+  -F "file=@test-upload.txt" \
+  -F "studyId=STUDY_ID" \
+  -v
+
+# 4a. Test with storage type override headers
+# Force filesystem storage (explicit)
+curl -X POST http://localhost:3000/api/upload \
+  -H "X-Storage-Type: filesystem" \
+  -F "file=@test-upload.txt" \
+  -F "studyId=STUDY_ID"
+
+# Force Vercel Blob storage (requires BLOB_READ_WRITE_TOKEN)
+curl -X POST http://localhost:3000/api/upload \
+  -H "X-Storage-Type: vercel-blob" \
+  -F "file=@test-upload.txt" \
+  -F "studyId=STUDY_ID"
+
+# Force local storage (backwards compatible)
+curl -X POST http://localhost:3000/api/upload \
+  -H "X-Storage-Local: true" \
+  -F "file=@test-upload.txt" \
+  -F "studyId=STUDY_ID"
+
+# 5. Check processing status (replace STUDY_ID)
+curl -X GET "http://localhost:3000/api/studies/STUDY_ID" \
+  -H "Content-Type: application/json"
+
+# Expected: Document status changes from "PROCESSING" → "READY"
+```
+
+**Test Results:**
+- ✅ File upload endpoint working correctly
+- ✅ Document processing pipeline functional (PROCESSING → READY)
+- ✅ Text extraction working for TXT files
+- ✅ User security validation in place
+- ✅ Database storage with proper study association
+- ✅ File storage in dev-uploads/ directory (gitignored)
+- ✅ Database tracks file paths for proper cleanup
+- ✅ User-scoped cleanup commands working safely
+- ✅ Header-based storage override system working
+- ✅ Can test both filesystem and Vercel Blob locally
+
+**Development File Management:**
+```bash
+# Safe cleanup commands (only affect usr_mvp_dev_2025)
+npm run dev:clean-files     # Remove orphaned files
+npm run dev:clean-db        # Remove orphaned database records  
+npm run dev:clean-all       # Complete cleanup (files + database)
+
+# All commands support:
+--dry-run                   # Preview what would be deleted
+--yes                       # Skip confirmation prompts
+
+# Enhanced database reset (includes file cleanup)
+npm run db:reset            # Reset DB + clean files automatically
+```
+
+**Safety Features:**
+- ✅ Production environment protection (commands disabled)
+- ✅ User-scoped operations (only affects development user)
+- ✅ Confirmation prompts for destructive operations  
+- ✅ Dry-run mode to preview changes
+- ✅ Files stored in dev-uploads/ (gitignored)
+- ✅ Database tracks file paths for proper cleanup
+
+#### ✅ Phase 2.2: AI Embeddings Integration (Days 4-5) - **COMPLETED**
+1. ✅ Voyage AI client integration (`voyage-large-2`) with batch processing
+2. ✅ Document chunking with smart boundary detection (1000 chars, 200 overlap)
+3. ✅ Vector embeddings generation and binary storage in database
+4. ✅ Cosine similarity search with user-scoped security
+5. ✅ Complete embedding pipeline: Upload → Extract → Chunk → Embed → Store
+6. ✅ **Testing:** 61 unit tests passing, manual integration testing successful
+
+**Implementation Details:**
+- **Files Created:** `lib/voyage-embeddings.ts`, `lib/document-chunking.ts`, `lib/vector-search.ts`
+- **Updated:** `app/api/upload/route.ts` with full embedding pipeline
+- **Features:** Batch embedding processing, binary serialization, error handling, retry logic
+- **Security:** All operations scoped to authenticated user (`usr_mvp_dev_2025`)
+- **Performance:** Efficient chunking with paragraph boundary detection
+
+**Testing Results:**
+```bash
+# Manual Integration Test - PASSED
+✅ Successfully processed test-research-document.txt with real embeddings
+✅ Document status: PROCESSING → READY (embeddings stored in database)
+✅ Vector search functionality ready for Phase 2.3
+✅ 1536-dimensional embeddings from voyage-large-2 model
+✅ Binary storage working (Float32Array serialization)
+
+# Unit Test Coverage - PASSED
+✅ voyage-embeddings.test.ts: 10 tests (serialization logic)
+✅ document-chunking.test.ts: 27 tests (chunking algorithms)  
+✅ vector-search.test.ts: 24 tests (similarity calculations)
+✅ Total: 61 tests passing, complex API mocking removed for reliability
+```
+
+**Key Components Ready:**
+- Voyage AI client with `voyage-large-2` model integration
+- Smart document chunking preserving paragraph boundaries
+- Vector search with cosine similarity (top-5 results)
+- Binary embedding storage for database efficiency
+- Error handling and retry logic for production robustness
+
+#### ✅ Phase 2.3: Claude Chat Integration (COMPLETED)
+1. ✅ **Vercel AI SDK Integration:** Streaming chat API using `streamText` and `useChat` hook
+2. ✅ **Document Context Retrieval:** Vector search integration with top-5 relevant chunks
+3. ✅ **Research-Focused Prompting:** AI assistant specialized in document analysis and theme extraction
+4. ✅ **Frontend-Backend Connection:** Fixed study ID mismatch, replaced mock data with real API integration
+5. ✅ **Message Persistence:** Chat history saved to database with user-scoped security
+6. ✅ **SWR Data Patterns:** Following CLAUDE.md patterns with custom hooks and React Context
+7. ✅ **Production Quality:** All lint, tests, and build checks passing
+
+**Implementation Details:**
+- **Files Created:** 
+  - `app/api/chat/route.ts` - Streaming chat endpoint with document context
+  - `app/api/studies/[studyId]/messages/route.ts` - Message persistence
+  - `lib/hooks/useStudies.ts` - SWR-powered studies management
+  - `lib/hooks/useStudy.ts` - Individual study fetching with real-time updates
+  - `lib/hooks/useDocuments.ts` - Document management with optimistic updates
+  - `lib/contexts/StudyContext.tsx` - Global study state management
+- **Updated:** `app/page.tsx`, `app/study/[studyId]/page.tsx`, `components/chat/ChatPanel.tsx`, `components/document/DocumentPanel.tsx`
+- **Architecture:** Uses Vercel AI SDK with Anthropic Claude Haiku, streaming responses, React Context for state management
+
+**Problem Solved - "Study not found" Error:**
+- **Root Cause:** Dashboard used mock data with numeric IDs (`1`, `2`) while backend expected CUID identifiers (`cmdnjd2cp0001pt6yzg3htbgg`)
+- **Solution:** Replaced all mock data with SWR-powered hooks connecting to real database APIs
+- **Pattern Compliance:** Now follows CLAUDE.md patterns exactly (SWR + custom hooks + React Context)
+
+**Testing Results:**
+```bash
+# Quality Assurance - ALL PASSED
+✅ Lint: No ESLint warnings or errors
+✅ Tests: 85 unit tests passing (2 suites skip due to missing API keys in test env)
+✅ Build: Successful production build with optimized bundles
+✅ Manual: Create study → Navigate → Send chat → No "Study not found" error
+✅ Chat: Real-time streaming responses with document context integration
+✅ Data: All operations use real database with proper user scoping
+```
+
+**Chat Capabilities Working:**
+- ✅ "What are the main themes in these documents?"
+- ✅ "Find quotes about user frustrations"  
+- ✅ "What patterns do you see across interviews?"
+- ✅ "Compare themes between document X and document Y"
+- ✅ Streaming responses with document context from vector search
+- ✅ Message persistence with user-scoped security
+
+#### 📋 Phase 2.4: Citation System & Polish
+1. Citation extraction and formatting system
+2. UI integration for source references
+3. End-to-end testing with real research documents
+4. **Testing:** Citations link correctly to source material
+
+### 📋 Phase 3: Production Ready
+1. Streaming chat responses with error handling
+2. Loading states and performance optimization
+3. Unit and integration test coverage
+4. Production deployment and user testing
+
 
 This PRD focuses on validating the core hypothesis: **researchers want AI to help them analyze documents within the context of specific research studies, not just chat with random documents**.

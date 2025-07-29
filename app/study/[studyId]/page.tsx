@@ -5,7 +5,7 @@ import { ArrowLeft, ChevronDown } from "lucide-react";
 import { DocumentPanel } from "@/components/document/DocumentPanel";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useRouter, useParams } from "next/navigation";
-import { useState } from "react";
+import { StudyProvider, useStudyContext } from "@/lib/contexts/StudyContext";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,34 +13,24 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
-const mockStudyData = {
-  "1": { name: "User Onboarding", documentCount: 5 },
-  "2": { name: "Competitor Analysis", documentCount: 8 },
-};
-
-export default function StudyPage() {
-  const params = useParams();
+function StudyPageContent() {
   const router = useRouter();
-  const [documents, setDocuments] = useState([]);
-  const [messages, setMessages] = useState([]);
-  
-  const studyId = params.studyId as string;
-  const studyData = mockStudyData[studyId as keyof typeof mockStudyData] || { 
-    name: "New study", 
-    documentCount: 0 
-  };
+  const { study, isLoading, error } = useStudyContext();
 
   const handleBackToStudies = () => {
     router.push("/");
   };
 
-  const handleFileUpload = (files: File[]) => {
-    console.log("Files to upload:", files);
+  const handleFileUpload = (file: { id: string; fileName: string; status: string }) => {
+    console.log("File uploaded:", file);
+    // The StudyContext will automatically refresh data
   };
 
-  const handleSendMessage = (message: string) => {
-    console.log("Message to send:", message);
-  };
+  // Handle errors by redirecting to dashboard
+  if (error && error.message === 'Study not found') {
+    router.push('/');
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -66,7 +56,7 @@ export default function StudyPage() {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="gap-2 text-lg font-medium">
-                    {studyData.name}
+                    {isLoading ? 'Loading...' : study?.name || 'Unknown Study'}
                     <ChevronDown className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -83,23 +73,51 @@ export default function StudyPage() {
         </div>
       </header>
 
-      <main className="flex-1 flex overflow-hidden">
-        <div className="w-[30%] min-w-[300px] border-r bg-muted/30">
-          <DocumentPanel 
-            documents={documents}
-            onFileUpload={handleFileUpload}
-            studyId={studyId}
-          />
-        </div>
-        
-        <div className="flex-1">
-          <ChatPanel 
-            messages={messages}
-            onSendMessage={handleSendMessage}
-            studyId={studyId}
-          />
-        </div>
-      </main>
+      {isLoading ? (
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading study...</p>
+          </div>
+        </main>
+      ) : study ? (
+        <main className="flex-1 flex overflow-hidden">
+          <div className="w-[30%] min-w-[300px] border-r bg-muted/30">
+            <DocumentPanel 
+              documents={study.documents}
+              onFileUploaded={handleFileUpload}
+              studyId={study.id}
+            />
+          </div>
+          
+          <div className="flex-1">
+            <ChatPanel 
+              studyId={study.id}
+            />
+          </div>
+        </main>
+      ) : (
+        <main className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-muted-foreground mb-4">Study not found</p>
+            <Button onClick={handleBackToStudies}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Studies
+            </Button>
+          </div>
+        </main>
+      )}
     </div>
+  );
+}
+
+export default function StudyPage() {
+  const params = useParams();
+  const studyId = params.studyId as string;
+
+  return (
+    <StudyProvider studyId={studyId}>
+      <StudyPageContent />
+    </StudyProvider>
   );
 }

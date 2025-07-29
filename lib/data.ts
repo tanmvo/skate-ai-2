@@ -1,8 +1,13 @@
 import { prisma } from "./prisma";
+import { getCurrentUserId } from "./auth";
 
 export async function getStudies() {
   try {
+    const userId = getCurrentUserId();
     const studies = await prisma.study.findMany({
+      where: {
+        userId,
+      },
       include: {
         _count: {
           select: {
@@ -24,8 +29,12 @@ export async function getStudies() {
 
 export async function getStudy(studyId: string) {
   try {
-    const study = await prisma.study.findUnique({
-      where: { id: studyId },
+    const userId = getCurrentUserId();
+    const study = await prisma.study.findFirst({
+      where: { 
+        id: studyId,
+        userId,
+      },
       include: {
         documents: {
           orderBy: { uploadedAt: "desc" },
@@ -50,8 +59,12 @@ export async function getStudy(studyId: string) {
 
 export async function createStudy(name: string) {
   try {
+    const userId = getCurrentUserId();
     const study = await prisma.study.create({
-      data: { name },
+      data: { 
+        name,
+        userId,
+      },
       include: {
         _count: {
           select: {
@@ -70,9 +83,17 @@ export async function createStudy(name: string) {
 
 export async function deleteStudy(studyId: string) {
   try {
-    await prisma.study.delete({
-      where: { id: studyId },
+    const userId = getCurrentUserId();
+    const result = await prisma.study.deleteMany({
+      where: { 
+        id: studyId,
+        userId,
+      },
     });
+    
+    if (result.count === 0) {
+      throw new Error("Study not found or access denied");
+    }
   } catch (error) {
     console.error("Error deleting study:", error);
     throw error;
