@@ -1,4 +1,8 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Set environment variable before any imports
+process.env.VOYAGE_API_KEY = 'test-api-key';
+
 import { 
   serializeEmbedding, 
   deserializeEmbedding,
