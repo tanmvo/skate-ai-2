@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState, useCallback } from "react";
 import { useChat } from "ai/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
-import { Send, Copy, Bot, User } from "lucide-react";
+import { Send, Copy, Bot, User, AlertCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { withRetry } from "@/lib/error-handling";
 
 interface ChatPanelProps {
   studyId: string;
@@ -16,6 +17,33 @@ interface ChatPanelProps {
 export function ChatPanel({ studyId }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [persistenceErrors, setPersistenceErrors] = useState<Set<string>>(new Set());
+  const [streamError, setStreamError] = useState<string | null>(null);
+
+  const saveMessageWithRetry = useCallback(async (role: 'USER' | 'ASSISTANT', content: string) => {
+    return withRetry(
+      async () => {
+        const response = await fetch('/api/studies/' + studyId + '/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            role,
+            content,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `HTTP ${response.status}`);
+        }
+
+        return response.json();
+      },
+      { maxAttempts: 3, delay: 1000, backoff: true }
+    );
+  }, [studyId]);
 
   const {
     messages,
@@ -24,6 +52,7 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
     handleSubmit,
     isLoading,
     error,
+    reload,
   } = useChat({
     api: '/api/chat',
     body: {
@@ -31,23 +60,57 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
     },
     onError: (error) => {
       console.error('Chat error:', error);
-      toast.error('Failed to send message. Please try again.');
+      
+      // Parse error response for better error handling
+      let errorMessage = 'Failed to send message. Please try again.';
+      let isRetryable = true;
+      
+      try {
+        const errorData = JSON.parse(error.message);
+        if (errorData.error) {
+          errorMessage = errorData.error;
+          isRetryable = errorData.retryable !== false;
+        }
+      } catch {
+        // Fallback to original error message
+        errorMessage = error.message || errorMessage;
+      }
+      
+      setStreamError(errorMessage);
+      
+      if (errorMessage.includes('rate limit')) {
+        toast.error('Too many requests. Please wait a moment before trying again.');
+      } else if (errorMessage.includes('service temporarily unavailable')) {
+        toast.error('AI service is temporarily unavailable. Please try again later.');
+      } else if (isRetryable) {
+        toast.error(errorMessage, {
+          action: {
+            label: "Retry",
+            onClick: () => {
+              setStreamError(null);
+              reload();
+            },
+          },
+        });
+      } else {
+        toast.error(errorMessage);
+      }
     },
     onFinish: async (message) => {
-      // Save the assistant's message to the database
+      // Save the assistant's message to the database with retry logic
       try {
-        await fetch('/api/studies/' + studyId + '/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            role: 'ASSISTANT',
-            content: message.content,
-          }),
+        await saveMessageWithRetry('ASSISTANT', message.content);
+        
+        // Remove any persistence errors for this message
+        setPersistenceErrors(prev => {
+          const next = new Set(prev);
+          next.delete(message.id);
+          return next;
         });
       } catch (err) {
-        console.warn('Failed to save assistant message:', err);
+        console.error('Failed to save assistant message:', err);
+        setPersistenceErrors(prev => new Set(prev).add(message.id));
+        toast.error('Failed to save message. Your conversation may not be fully preserved.');
       }
     },
     onResponse: async () => {
@@ -55,18 +118,17 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
       const lastUserMessage = messages[messages.length - 1];
       if (lastUserMessage && lastUserMessage.role === 'user') {
         try {
-          await fetch('/api/studies/' + studyId + '/messages', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              role: 'USER',
-              content: lastUserMessage.content,
-            }),
+          await saveMessageWithRetry('USER', lastUserMessage.content);
+          
+          // Remove any persistence errors for this message
+          setPersistenceErrors(prev => {
+            const next = new Set(prev);
+            next.delete(lastUserMessage.id);
+            return next;
           });
         } catch (err) {
-          console.warn('Failed to save user message:', err);
+          console.error('Failed to save user message:', err);
+          setPersistenceErrors(prev => new Set(prev).add(lastUserMessage.id));
         }
       }
     },
@@ -86,13 +148,33 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
       // Get the form and trigger submit
       const form = e.currentTarget.closest('form') as HTMLFormElement;
       if (form) {
-        form.requestSubmit();
+        // Use dispatchEvent as fallback for environments that don't support requestSubmit
+        if (form.requestSubmit) {
+          form.requestSubmit();
+        } else {
+          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
       }
     }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
+  };
+
+  const retryMessagePersistence = async (messageId: string, role: 'USER' | 'ASSISTANT', content: string) => {
+    try {
+      await saveMessageWithRetry(role, content);
+      setPersistenceErrors(prev => {
+        const next = new Set(prev);
+        next.delete(messageId);
+        return next;
+      });
+      toast.success('Message saved successfully');
+    } catch (err) {
+      console.error('Retry failed:', err);
+      toast.error('Failed to save message. Please try again.');
+    }
   };
 
   const formatTimestamp = (date: Date) => {
@@ -167,6 +249,24 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{formatTimestamp(message.createdAt || new Date())}</span>
+                  {persistenceErrors.has(message.id) && (
+                    <>
+                      <AlertCircle className="h-3 w-3 text-destructive" />
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto p-1 text-destructive hover:text-destructive"
+                        onClick={() => retryMessagePersistence(
+                          message.id, 
+                          message.role.toUpperCase() as 'USER' | 'ASSISTANT', 
+                          message.content
+                        )}
+                        title="Message not saved - click to retry"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </Button>
+                    </>
+                  )}
                   {message.role === "assistant" && (
                     <Button
                       size="sm"
@@ -215,10 +315,30 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
         <p className="text-xs text-muted-foreground mt-2">
           Press Enter to send, Shift+Enter for new line
         </p>
-        {error && (
-          <p className="text-xs text-destructive mt-2">
-            Error: {error.message}
-          </p>
+        {(error || streamError) && (
+          <div className="flex items-center gap-2 mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
+            <AlertCircle className="h-3 w-3 flex-shrink-0" />
+            <span>{streamError || error?.message}</span>
+            {streamError && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-auto p-1 ml-auto text-destructive hover:text-destructive"
+                onClick={() => {
+                  setStreamError(null);
+                  reload();
+                }}
+              >
+                <RefreshCw className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+        )}
+        {persistenceErrors.size > 0 && (
+          <div className="flex items-center gap-2 mt-1 p-2 bg-amber-50 dark:bg-amber-950/20 rounded text-xs text-amber-700 dark:text-amber-400">
+            <AlertCircle className="h-3 w-3 flex-shrink-0" />
+            <span>{persistenceErrors.size} message(s) not saved. Click the retry button next to affected messages.</span>
+          </div>
         )}
       </div>
     </div>

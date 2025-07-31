@@ -1,11 +1,23 @@
 import { streamText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { NextRequest } from 'next/server';
-import { validateStudyOwnership } from '@/lib/auth';
+import { validateStudyOwnership, getCurrentUserId } from '@/lib/auth';
 import { findRelevantChunks } from '@/lib/vector-search';
+import { 
+  sanitizeError, 
+  withTimeout, 
+  checkRateLimit, 
+  ServiceUnavailableError,
+  RateLimitError 
+} from '@/lib/error-handling';
 
 export async function POST(req: NextRequest) {
   try {
+    // Check API key availability first
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new ServiceUnavailableError('AI service');
+    }
+
     const { messages, studyId } = await req.json();
 
     // Validate required fields
@@ -21,6 +33,15 @@ export async function POST(req: NextRequest) {
         { error: 'Study ID is required' },
         { status: 400 }
       );
+    }
+
+    // Rate limiting check
+    const userId = getCurrentUserId();
+    const rateLimitKey = `chat:${userId}:${studyId}`;
+    const rateCheck = checkRateLimit(rateLimitKey, 20, 60000); // 20 requests per minute
+    
+    if (!rateCheck.allowed) {
+      throw new RateLimitError(rateCheck.retryAfter);
     }
 
     // Validate user owns the study
@@ -41,14 +62,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find relevant document chunks for context
+    // Find relevant document chunks for context with timeout
     let documentContext = '';
     try {
-      const relevantChunks = await findRelevantChunks(latestMessage.content, {
-        studyId,
-        limit: 5,
-        minSimilarity: 0.1,
-      });
+      const relevantChunks = await withTimeout(
+        findRelevantChunks(latestMessage.content, {
+          studyId,
+          limit: 5,
+          minSimilarity: 0.1,
+        }),
+        10000 // 10 second timeout
+      );
 
       if (relevantChunks.length > 0) {
         documentContext = relevantChunks
@@ -99,8 +123,32 @@ Base your responses on this document content when relevant to the user's questio
 
   } catch (error) {
     console.error('Chat API error:', error);
+    
+    const sanitized = sanitizeError(error);
+    
+    // Handle specific error types with appropriate status codes
+    if (error instanceof ServiceUnavailableError) {
+      return Response.json(
+        { error: sanitized.message, code: sanitized.code, retryable: sanitized.retryable },
+        { status: 503 }
+      );
+    }
+    
+    if (error instanceof RateLimitError) {
+      const response = Response.json(
+        { error: sanitized.message, code: sanitized.code, retryable: sanitized.retryable },
+        { status: 429 }
+      );
+      
+      if (error.retryAfter) {
+        response.headers.set('Retry-After', error.retryAfter.toString());
+      }
+      
+      return response;
+    }
+    
     return Response.json(
-      { error: 'Failed to process chat request' },
+      { error: sanitized.message, code: sanitized.code, retryable: sanitized.retryable },
       { status: 500 }
     );
   }
