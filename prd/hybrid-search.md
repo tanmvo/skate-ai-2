@@ -7,12 +7,102 @@ Transform Skate AI's research platform with intelligent hybrid search that combi
 ## Problem Statement
 
 - **Current Issue**: LLM gets confused about document counts and study structure due to vector-only context
-- **User Impact**: Inconsistent responses to basic questions like "how many documents do I have?"
-- **Technical Debt**: Pure vector search can't handle metadata queries effectively
+- **Citation Accuracy Issue**: When users ask about specific documents, citations show results from all documents in study instead of only the referenced documents
+- **User Impact**: Inconsistent responses to basic questions like "how many documents do I have?" and incorrect source attribution
+- **Technical Debt**: Pure vector search can't handle metadata queries effectively or respect document-specific context
 
 ## Solution
 
 Implement hybrid search architecture with LLM tools that provide real-time database access for metadata queries while maintaining semantic search for content analysis.
+
+## Phase 0: Citation Accuracy Foundation (1-2 weeks)
+
+**Priority**: Critical foundation for all subsequent phases. Fixes immediate user-facing citation accuracy issues while building infrastructure for advanced hybrid search.
+
+**Approach**: Parallel sub-agent implementation with phased reviews to manage complexity and ensure quality.
+
+### Phase 0.1: Metadata Infrastructure Foundation (Sub-Agent A)
+
+**Goal**: Build core metadata collection and context generation infrastructure
+
+**Sub-Phases with Review Points**:
+
+#### 0.1a: Core Metadata Collection (3-4 days)
+- **Deliverables**:
+  - `lib/types/metadata.ts` - Type definitions for study and document metadata
+  - `lib/metadata-collector.ts` - Database queries for metadata extraction
+  - Enhanced `lib/data.ts` with metadata functions
+- **Success Criteria**: Can collect complete study metadata in single database query
+- **Review Gate**: Validate metadata schema completeness and query performance
+
+#### 0.1b: Basic Context Building (2-3 days) 
+- **Deliverables**:
+  - `lib/metadata-context.ts` - Core context builder with `buildContext()` function
+  - `lib/metadata-formatter.ts` - LLM-optimized formatting utilities
+- **Success Criteria**: Generate study context under 500 tokens consistently
+- **Review Gate**: Test context quality and token efficiency with sample data
+
+#### 0.1c: Basic Caching Infrastructure (2-3 days)
+- **Deliverables**:
+  - `lib/metadata-cache.ts` - Simple caching with TTL
+  - Cache integration with metadata collector
+  - Basic cache invalidation on document changes
+- **Success Criteria**: Functional caching reduces database queries for repeated requests
+- **Review Gate**: Verify cache works correctly with basic invalidation
+
+### Phase 0.2: Smart Context Integration (Sub-Agent B)
+
+**Goal**: Integrate metadata context with chat system for accurate citations
+
+**Sub-Phases with Review Points**:
+
+#### 0.2a: Basic Function Calling Infrastructure (2-3 days)
+- **Deliverables**:
+  - `lib/llm-tools/search-tools.ts` - Basic search function calling tools
+    - `search_specific_documents()` - Search within specified documents
+    - `search_all_documents()` - Search across all study documents
+  - Enhanced `/app/api/chat/route.ts` with AI SDK function calling setup
+  - Tool integration with existing vector search
+- **Technical Approach**: Replace direct `findRelevantChunks()` calls with LLM function calling that routes to appropriate search tools (existing vector search function unchanged)
+- **Success Criteria**: LLM successfully chooses appropriate search tool based on user queries
+- **Review Gate**: Test function calling accuracy with document-specific vs. general queries
+
+#### 0.2b: Metadata-Aware System Prompts (2-3 days)
+- **Deliverables**:
+  - System prompt integration with metadata context from Phase 0.1
+  - Document list formatting for LLM tool selection
+  - Tool routing logic based on document references in metadata
+  - Citation filtering implementation using tool selections
+- **Success Criteria**: 100% citation accuracy for document-specific queries via function calling
+- **Review Gate**: End-to-end testing with real study data and various query types
+
+#### 0.2c: Function Calling Reliability (1-2 days)
+- **Deliverables**:
+  - Error handling for tool execution failures
+  - Fallback mechanisms (revert to current vector search if tools fail)
+  - Basic token limit validation (fail gracefully if exceeded)
+  - Essential logging for debugging tool issues
+- **Success Criteria**: 100% fallback reliability when function calling fails, basic token management
+- **Review Gate**: Test error scenarios and fallback behavior
+
+### Phase 0.3: Integration & Validation (Both Agents)
+
+**Goal**: Integrate both sub-systems and validate end-to-end functionality
+
+**Activities**:
+- Integration testing between metadata infrastructure and chat system
+- User acceptance testing with real study scenarios
+- Performance optimization and monitoring setup
+- Documentation and handoff preparation
+
+**Success Criteria**:
+- 100% citation accuracy for document-specific queries via LLM function calling
+- Functional metadata context generation (no specific performance targets)
+- Zero regressions in existing chat functionality
+- Robust error handling and fallback mechanisms
+- Ready foundation for Phase 1 advanced features
+
+**Final Review Gate**: Complete system validation before proceeding to Phase 1
 
 ## Phase 1: Core Hybrid Search Infrastructure (2-3 weeks)
 
@@ -23,22 +113,30 @@ Implement hybrid search architecture with LLM tools that provide real-time datab
 - **Success Criteria**: 95% accuracy on metadata vs content query classification
 - **User Story**: "When I ask 'how many documents', system knows to use database query not vector search"
 
-### 1.2 LLM Function Tools Foundation
+### 1.2 Advanced LLM Function Tools
 
-**Goal**: Enable real-time database access through LLM function calling
+**Goal**: Expand beyond Phase 0 basic search tools to comprehensive database access
 - **Deliverables**:
-  - `lib/llm-tools/document-tools.ts` - Document listing, counting
-  - `lib/llm-tools/study-tools.ts` - Study information and management
-  - Enhanced `/app/api/chat/route.ts` with AI SDK function calling
-- **Success Criteria**: LLM can accurately count documents, list studies, get file info
-- **User Story**: "Chat shows 'Searching documents...' and returns exact count with confidence"
+  - `lib/llm-tools/document-tools.ts` - Advanced document operations (listing, counting, metadata queries)
+  - `lib/llm-tools/study-tools.ts` - Study information and management tools
+  - `lib/llm-tools/analytics-tools.ts` - Usage analytics and insights tools
+  - Enhanced tool orchestration and chaining capabilities
+- **Success Criteria**: LLM can accurately count documents, list studies, get detailed file info, analyze usage patterns
+- **User Story**: "Chat shows 'Searching documents...' and returns exact count with confidence and additional insights"
 
-### 1.3 Metadata Context Builder
+**Note**: Builds upon Phase 0 basic function calling infrastructure
 
-**Goal**: Generate rich, structured context from database queries
-- **Deliverable**: `lib/metadata-context.ts` with caching layer
-- **Success Criteria**: Sub-200ms response times for metadata queries
-- **User Story**: "LLM has accurate, real-time study and document information"
+### 1.3 Advanced Metadata Context Features
+
+**Goal**: Enhance metadata context with advanced features beyond Phase 0 foundation
+- **Deliverables**: 
+  - Query-aware context filtering and optimization
+  - Cross-study metadata aggregation
+  - Metadata analytics and insights
+- **Success Criteria**: Enhanced context relevance and cross-study capabilities
+- **User Story**: "LLM provides rich contextual information that adapts to my specific research questions"
+
+**Note**: Builds upon Phase 0 metadata infrastructure foundation
 
 ## Phase 2: Advanced Search Capabilities (3-4 weeks)
 
@@ -165,6 +263,7 @@ model Document {
 
 ### User Experience
 
+- **Phase 0**: 100% citation accuracy for document-specific queries
 - 100% accuracy on document counting queries
 - 95% user satisfaction with search relevance
 - 3x increase in cross-study content discovery
@@ -172,6 +271,7 @@ model Document {
 
 ### Technical Performance
 
+- **Phase 0**: Functional metadata context generation and reliable fallback mechanisms
 - Sub-3 second response times for complex queries
 - 99.9% uptime for search functionality
 - <500ms p95 latency for metadata tools
