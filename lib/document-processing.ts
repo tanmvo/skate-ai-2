@@ -1,4 +1,5 @@
 import * as mammoth from 'mammoth';
+import PDFParser from 'pdf2json';
 
 export interface ProcessingResult {
   text: string;
@@ -17,14 +18,99 @@ export interface ProcessingError {
 
 export type DocumentProcessingResult = ProcessingResult | ProcessingError;
 
-export async function extractTextFromPDF(): Promise<DocumentProcessingResult> {
-  // PDF support temporarily disabled for Phase 2.2 testing
-  // Will be re-enabled in Phase 2.3 with a more reliable library
-  return {
-    success: false,
-    error: 'PDF processing temporarily disabled',
-    details: 'PDF support will be added in the next phase. Please use TXT or DOCX files for now.'
-  };
+interface PDFErrorData {
+  parserError?: string;
+}
+
+interface PDFTextRun {
+  T?: string;
+}
+
+interface PDFTextItem {
+  R?: PDFTextRun[];
+}
+
+interface PDFPage {
+  Texts?: PDFTextItem[];
+}
+
+interface PDFData {
+  Pages?: PDFPage[];
+}
+
+export async function extractTextFromPDF(buffer: Buffer): Promise<DocumentProcessingResult> {
+  return new Promise((resolve) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const pdfParser = new (PDFParser as any)(null, 1);
+    
+    pdfParser.on('pdfParser_dataError', (errData: PDFErrorData) => {
+      console.error('PDF parsing error:', errData);
+      resolve({
+        success: false,
+        error: 'Failed to parse PDF',
+        details: errData.parserError || 'Unknown PDF parsing error'
+      });
+    });
+
+    pdfParser.on('pdfParser_dataReady', (pdfData: PDFData) => {
+      try {
+        // Extract text from all pages
+        let extractedText = '';
+        
+        if (pdfData.Pages && Array.isArray(pdfData.Pages)) {
+          for (const page of pdfData.Pages) {
+            if (page.Texts && Array.isArray(page.Texts)) {
+              for (const textItem of page.Texts) {
+                if (textItem.R && Array.isArray(textItem.R)) {
+                  for (const textRun of textItem.R) {
+                    if (textRun.T) {
+                      // Decode URI component and add space
+                      extractedText += decodeURIComponent(textRun.T) + ' ';
+                    }
+                  }
+                }
+              }
+            }
+            // Add page break
+            extractedText += '\n\n';
+          }
+        }
+
+        if (!extractedText || extractedText.trim().length === 0) {
+          resolve({
+            success: false,
+            error: 'PDF contains no extractable text',
+            details: 'The document may be empty, scanned, or image-based'
+          });
+          return;
+        }
+
+        // Clean up the extracted text
+        const cleanText = extractedText
+          .replace(/\n{3,}/g, '\n\n') // Reduce excessive line breaks
+          .replace(/[ \t]{2,}/g, ' ') // Reduce excessive spaces
+          .trim();
+
+        resolve({
+          text: cleanText,
+          metadata: {
+            pageCount: pdfData.Pages ? pdfData.Pages.length : 0,
+            wordCount: cleanText.split(/\s+/).length,
+          }
+        });
+      } catch (error) {
+        console.error('PDF text extraction error:', error);
+        resolve({
+          success: false,
+          error: 'Failed to extract text from PDF',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+
+    // Parse the PDF buffer
+    pdfParser.parseBuffer(buffer);
+  });
 }
 
 export async function extractTextFromDOCX(buffer: Buffer): Promise<DocumentProcessingResult> {
@@ -122,7 +208,7 @@ export async function extractTextFromBuffer(
     const fileExtension = fileName.toLowerCase().split('.').pop() || '';
     
     if (mimeType.includes('pdf') || fileExtension === 'pdf') {
-      return await extractTextFromPDF();
+      return await extractTextFromPDF(buffer);
     }
     
     if (mimeType.includes('officedocument.wordprocessingml') || 

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateStudyOwnership } from "@/lib/auth";
+import { Citation } from "@/lib/types/citations";
 
 export async function POST(
   request: NextRequest,
@@ -8,7 +9,11 @@ export async function POST(
 ) {
   const params = await context.params;
   try {
-    const { role, content, citations } = await request.json();
+    const { role, content, citations }: { 
+      role: string; 
+      content: string; 
+      citations?: Citation[] 
+    } = await request.json();
 
     if (!role || !content) {
       return NextResponse.json(
@@ -37,7 +42,7 @@ export async function POST(
       data: {
         role: role as 'USER' | 'ASSISTANT',
         content,
-        citations: citations || null,
+        citations: citations ? JSON.parse(JSON.stringify(citations)) : null,
         studyId: params.studyId,
       },
     });

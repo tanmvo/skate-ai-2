@@ -212,6 +212,29 @@ describe('DocumentPanel', () => {
     });
   });
 
+  it('passes onFileUploaded callback correctly to FileUpload component', () => {
+    const customCallback = vi.fn();
+    
+    renderWithProviders(
+      <DocumentPanel 
+        documents={mockDocuments} 
+        onFileUploaded={customCallback}
+        studyId={studyId}
+      />
+    );
+
+    // Verify the FileUpload component receives the callback
+    const mockUploadButton = screen.getByText('Mock Upload');
+    fireEvent.click(mockUploadButton);
+
+    expect(customCallback).toHaveBeenCalledTimes(1);
+    expect(customCallback).toHaveBeenCalledWith({
+      id: 'new_doc',
+      fileName: 'test.pdf',
+      status: 'PROCESSING',
+    });
+  });
+
   it('handles missing originalName gracefully', () => {
     const documentWithoutOriginalName = {
       ...mockDocuments[0],

@@ -3,6 +3,7 @@
 import { FileUpload } from "./FileUpload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   FileText, 
   Loader2, 
@@ -28,9 +29,17 @@ interface DocumentPanelProps {
   documents: Document[];
   onFileUploaded?: (file: { id: string; fileName: string; status: string }) => void;
   studyId: string;
+  highlightedDocumentId?: string;
+  citationCounts?: Record<string, number>;
 }
 
-export function DocumentPanel({ documents = [], onFileUploaded, studyId }: DocumentPanelProps) {
+export function DocumentPanel({ 
+  documents = [], 
+  onFileUploaded, 
+  studyId, 
+  highlightedDocumentId,
+  citationCounts = {}
+}: DocumentPanelProps) {
   const handleFileUpload = (file: { id: string; fileName: string; status: string }) => {
     onFileUploaded?.(file);
   };
@@ -104,7 +113,13 @@ export function DocumentPanel({ documents = [], onFileUploaded, studyId }: Docum
           </div>
         ) : (
           documents.map((doc) => (
-            <Card key={doc.id} className="transition-colors hover:bg-muted/50">
+            <Card 
+              key={doc.id} 
+              className={cn(
+                "transition-colors hover:bg-muted/50",
+                highlightedDocumentId === doc.id && "ring-2 ring-primary bg-primary/5"
+              )}
+            >
               <CardContent className="p-3">
                 <div className="flex items-start gap-3">
                   <div className="text-lg leading-none">
@@ -117,6 +132,11 @@ export function DocumentPanel({ documents = [], onFileUploaded, studyId }: Docum
                         {doc.originalName || doc.fileName}
                       </h4>
                       {getStatusIcon(doc.processingStatus)}
+                      {citationCounts[doc.id] && citationCounts[doc.id] > 0 && (
+                        <Badge variant="secondary" className="text-xs">
+                          {citationCounts[doc.id]} cited
+                        </Badge>
+                      )}
                     </div>
                     
                     <div className="flex items-center gap-2 text-xs text-muted-foreground">

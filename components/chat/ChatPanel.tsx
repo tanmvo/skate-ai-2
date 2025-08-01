@@ -9,18 +9,27 @@ import { Send, Copy, Bot, User, AlertCircle, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { withRetry } from "@/lib/error-handling";
+import { Citation } from "@/lib/types/citations";
+import { CitationBadge } from "./CitationBadge";
+import { CitationPanel } from "./CitationPanel";
 
 interface ChatPanelProps {
   studyId: string;
+  onCitationClick?: (citation: Citation) => void;
 }
 
-export function ChatPanel({ studyId }: ChatPanelProps) {
+export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [persistenceErrors, setPersistenceErrors] = useState<Set<string>>(new Set());
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [messageCitations, setMessageCitations] = useState<Record<string, Citation[]>>({});
 
-  const saveMessageWithRetry = useCallback(async (role: 'USER' | 'ASSISTANT', content: string) => {
+  const saveMessageWithRetry = useCallback(async (
+    role: 'USER' | 'ASSISTANT', 
+    content: string, 
+    citations?: Citation[]
+  ) => {
     return withRetry(
       async () => {
         const response = await fetch('/api/studies/' + studyId + '/messages', {
@@ -31,6 +40,7 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
           body: JSON.stringify({
             role,
             content,
+            citations,
           }),
         });
 
@@ -53,6 +63,7 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
     isLoading,
     error,
     reload,
+    data,
   } = useChat({
     api: '/api/chat',
     body: {
@@ -97,9 +108,24 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
       }
     },
     onFinish: async (message) => {
-      // Save the assistant's message to the database with retry logic
       try {
-        await saveMessageWithRetry('ASSISTANT', message.content);
+        // Extract citations from streamed data
+        const citationData = data?.find((item: unknown) => {
+          const typedItem = item as { type?: string; citations?: Citation[] };
+          return typedItem?.type === 'citations';
+        }) as { type: string; citations?: Citation[] } | undefined;
+        const citations = citationData?.citations || [];
+
+        // Update message citations state
+        if (citations.length > 0) {
+          setMessageCitations(prev => ({
+            ...prev,
+            [message.id]: citations
+          }));
+        }
+
+        // Save the message with citations
+        await saveMessageWithRetry('ASSISTANT', message.content, citations);
         
         // Remove any persistence errors for this message
         setPersistenceErrors(prev => {
@@ -164,7 +190,9 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
 
   const retryMessagePersistence = async (messageId: string, role: 'USER' | 'ASSISTANT', content: string) => {
     try {
-      await saveMessageWithRetry(role, content);
+      // Include citations for assistant messages if available
+      const citations = role === 'ASSISTANT' ? messageCitations[messageId] : undefined;
+      await saveMessageWithRetry(role, content, citations);
       setPersistenceErrors(prev => {
         const next = new Set(prev);
         next.delete(messageId);
@@ -175,6 +203,10 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
       console.error('Retry failed:', err);
       toast.error('Failed to save message. Please try again.');
     }
+  };
+
+  const handleCitationClick = (citation: Citation) => {
+    onCitationClick?.(citation);
   };
 
   const formatTimestamp = (date: Date) => {
@@ -242,10 +274,29 @@ export function ChatPanel({ studyId }: ChatPanelProps) {
                     <div className="prose prose-sm max-w-none dark:prose-invert">
                       <div className="whitespace-pre-wrap text-sm">
                         {message.content}
+                        {message.role === "assistant" && messageCitations[message.id] && (
+                          <span className="inline-flex flex-wrap ml-1">
+                            {messageCitations[message.id].map((citation, index) => (
+                              <CitationBadge
+                                key={citation.chunkId}
+                                citation={citation}
+                                index={index}
+                                onClick={handleCitationClick}
+                              />
+                            ))}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
+
+                {message.role === "assistant" && messageCitations[message.id] && (
+                  <CitationPanel
+                    citations={messageCitations[message.id]}
+                    onCitationClick={handleCitationClick}
+                  />
+                )}
 
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>{formatTimestamp(message.createdAt || new Date())}</span>

@@ -322,4 +322,37 @@ describe('Document Upload Flow', () => {
     expect(screen.getByText('Test Document.pdf')).toBeDefined();
     expect(screen.getByText('Newly Uploaded.pdf')).toBeDefined();
   });
+
+  it('verifies upload callback is triggered for data refresh', async () => {
+    const mockFile = createMockFile('callback-test.pdf', 'application/pdf', 1024000);
+    const uploadResult = {
+      id: 'doc_callback_test',
+      fileName: 'callback-test.pdf',
+      status: 'PROCESSING',
+    };
+
+    mockUploadFile.mockResolvedValueOnce(uploadResult);
+
+    renderWithProviders(
+      <DocumentPanel 
+        documents={[]} 
+        onFileUploaded={mockOnFileUploaded}
+        studyId={studyId}
+      />
+    );
+
+    // Simulate file upload
+    if (mockOnDrop) {
+      await mockOnDrop([mockFile]);
+    }
+
+    await waitFor(() => {
+      // Verify upload was called
+      expect(mockUploadFile).toHaveBeenCalledWith(mockFile, studyId);
+      
+      // Verify callback was triggered (this would trigger refreshStudy in the actual app)
+      expect(mockOnFileUploaded).toHaveBeenCalledWith(uploadResult);
+      expect(mockOnFileUploaded).toHaveBeenCalledTimes(1);
+    });
+  });
 });

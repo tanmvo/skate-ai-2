@@ -1,11 +1,13 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { DocumentPanel } from "@/components/document/DocumentPanel";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useRouter, useParams } from "next/navigation";
 import { StudyProvider, useStudyContext } from "@/lib/contexts/StudyContext";
+import { Citation } from "@/lib/types/citations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,7 +17,20 @@ import {
 
 function StudyPageContent() {
   const router = useRouter();
-  const { study, isLoading, error } = useStudyContext();
+  const { study, isLoading, error, refreshStudy } = useStudyContext();
+  const [highlightedDocumentId, setHighlightedDocumentId] = useState<string | undefined>();
+  const [citationCounts, setCitationCounts] = useState<Record<string, number>>({});
+
+  // Clear highlighting after a delay
+  useEffect(() => {
+    if (highlightedDocumentId) {
+      const timeout = setTimeout(() => {
+        setHighlightedDocumentId(undefined);
+      }, 3000); // Clear highlight after 3 seconds
+      
+      return () => clearTimeout(timeout);
+    }
+  }, [highlightedDocumentId]);
 
   const handleBackToStudies = () => {
     router.push("/");
@@ -23,7 +38,19 @@ function StudyPageContent() {
 
   const handleFileUpload = (file: { id: string; fileName: string; status: string }) => {
     console.log("File uploaded:", file);
-    // The StudyContext will automatically refresh data
+    // Refresh study data to include the new document
+    refreshStudy();
+  };
+
+  const handleCitationClick = (citation: Citation) => {
+    // Highlight the referenced document
+    setHighlightedDocumentId(citation.documentId);
+    
+    // Update citation counts (this is a simple approach - in a real app you might want to track this more comprehensively)
+    setCitationCounts(prev => ({
+      ...prev,
+      [citation.documentId]: (prev[citation.documentId] || 0) + 1
+    }));
   };
 
   // Handle errors by redirecting to dashboard
@@ -87,12 +114,15 @@ function StudyPageContent() {
               documents={study.documents}
               onFileUploaded={handleFileUpload}
               studyId={study.id}
+              highlightedDocumentId={highlightedDocumentId}
+              citationCounts={citationCounts}
             />
           </div>
           
           <div className="flex-1">
             <ChatPanel 
               studyId={study.id}
+              onCitationClick={handleCitationClick}
             />
           </div>
         </main>
