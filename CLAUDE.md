@@ -38,9 +38,11 @@ BLOB_READ_WRITE_TOKEN="your_vercel_blob_token" # Optional
 - Prisma 6.12.0
 - Tailwind CSS 4
 - ShadCN UI components
+- **AI SDK v4.3.19** - Tool calling and streaming
 - SWR for client-side data fetching
 - ESLint 9
-- Voyage AI for document embeddings (`voyage-large-2`)
+- **Voyage AI** for document embeddings (`voyage-large-2`)
+- **Claude 3.5 Sonnet** for chat responses
 - Additional UI libraries: class-variance-authority, clsx, lucide-react, tailwind-merge
 
 ## Database
@@ -65,8 +67,11 @@ BLOB_READ_WRITE_TOKEN="your_vercel_blob_token" # Optional
   - `document-chunking.ts` - Text chunking with overlap
   - `voyage-embeddings.ts` - Voyage AI integration and embedding serialization
   - `vector-search.ts` - Cosine similarity and semantic search
-  - `hooks/` - Custom React hooks (useStudies, useDocuments, useChat)
+  - `hooks/` - Custom React hooks (useStudies, useDocuments, useChat, useToolCallData)
   - `contexts/` - React contexts (StudyContext, ChatContext, DocumentContext)
+  - `llm-tools/` - AI SDK tool definitions for search operations
+  - `types/` - TypeScript interfaces (citations, chat phases, tool events)
+  - `utils/` - Utilities (message phases, metadata processing)
 - `prisma/` - Database schema and models
 - `prd/` - Product requirements for current features
 - `dev-uploads/` - Development file storage (gitignored)
@@ -118,15 +123,19 @@ BLOB_READ_WRITE_TOKEN="your_vercel_blob_token" # Optional
   - "Summarize key insights from these documents"
   - "What patterns do you see across interviews?"
   - "Compare themes between interview 1 and interview 3"
-- Citation system showing source document/section for insights
+- **Progressive message system** - Shows AI thinking steps with tool usage
+- **Citation system** with inline badges linking to source documents
+- **Hybrid search** - Combines keyword and semantic search for better relevance
 - Document-aware context and cross-document analysis
 
 #### Technical Infrastructure
-- Voyage AI embeddings for document retrieval (`voyage-large-2`)
-- Claude integration for chat responses (next phase)
+- **Claude AI integration** via AI SDK v4.3.19 with tool calling
+- **Voyage AI embeddings** for document retrieval (`voyage-large-2`)
+- **Progressive UI rendering** - Real-time tool activity and thinking phases
+- **Hybrid search system** - Keyword + semantic search with result fusion
 - Vector embeddings with document chunking
-- Unit testing setup (Vitest with 90+ tests)
-- Logging infrastructure & error tracking
+- **Comprehensive testing** - Vitest with 280+ tests covering unit and integration
+- Robust error handling & retry mechanisms
 - Performance monitoring and observability
 
 #### Export & Organization
