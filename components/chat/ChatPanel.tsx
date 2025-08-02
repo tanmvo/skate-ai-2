@@ -4,14 +4,11 @@ import { useRef, useEffect, useState, useCallback } from "react";
 import { useChat } from "ai/react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent } from "@/components/ui/card";
-import { Send, Copy, Bot, User, AlertCircle, RefreshCw } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Send, Bot, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { withRetry } from "@/lib/error-handling";
 import { Citation } from "@/lib/types/citations";
-import { CitationBadge } from "./CitationBadge";
-import { CitationPanel } from "./CitationPanel";
+import { ProgressiveMessage } from "./ProgressiveMessage";
 
 interface ChatPanelProps {
   studyId: string;
@@ -219,8 +216,10 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   return (
     <div className="h-full flex flex-col bg-background">
       <div className="p-4 border-b">
-        <h2 className="font-semibold">Chat</h2>
-        <p className="text-sm text-muted-foreground mt-1">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold">Chat</h2>
+        </div>
+        <p className="text-sm text-muted-foreground">
           Ask questions about your documents
         </p>
       </div>
@@ -244,99 +243,21 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
           </div>
         ) : (
           messages.map((message) => (
-            <div
+            <ProgressiveMessage
               key={message.id}
-              className={cn(
-                "flex gap-3",
-                message.role === "user" ? "justify-end" : "justify-start"
+              message={message}
+              dataStream={data}
+              citations={messageCitations[message.id] || []}
+              persistenceError={persistenceErrors.has(message.id)}
+              onCitationClick={handleCitationClick}
+              onRetryPersistence={() => retryMessagePersistence(
+                message.id, 
+                message.role.toUpperCase() as 'USER' | 'ASSISTANT', 
+                message.content
               )}
-            >
-              {message.role === "assistant" && (
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary-foreground" />
-                </div>
-              )}
-
-              <div
-                className={cn(
-                  "max-w-[80%] space-y-2",
-                  message.role === "user" ? "order-2" : "order-1"
-                )}
-              >
-                <Card
-                  className={cn(
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
-                  )}
-                >
-                  <CardContent className="p-3">
-                    <div className="prose prose-sm max-w-none dark:prose-invert">
-                      <div className="whitespace-pre-wrap text-sm">
-                        {message.content}
-                        {message.role === "assistant" && messageCitations[message.id] && (
-                          <span className="inline-flex flex-wrap ml-1">
-                            {messageCitations[message.id].map((citation, index) => (
-                              <CitationBadge
-                                key={citation.chunkId}
-                                citation={citation}
-                                index={index}
-                                onClick={handleCitationClick}
-                              />
-                            ))}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {message.role === "assistant" && messageCitations[message.id] && (
-                  <CitationPanel
-                    citations={messageCitations[message.id]}
-                    onCitationClick={handleCitationClick}
-                  />
-                )}
-
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span>{formatTimestamp(message.createdAt || new Date())}</span>
-                  {persistenceErrors.has(message.id) && (
-                    <>
-                      <AlertCircle className="h-3 w-3 text-destructive" />
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-auto p-1 text-destructive hover:text-destructive"
-                        onClick={() => retryMessagePersistence(
-                          message.id, 
-                          message.role.toUpperCase() as 'USER' | 'ASSISTANT', 
-                          message.content
-                        )}
-                        title="Message not saved - click to retry"
-                      >
-                        <RefreshCw className="h-3 w-3" />
-                      </Button>
-                    </>
-                  )}
-                  {message.role === "assistant" && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-auto p-1"
-                      onClick={() => copyToClipboard(message.content)}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-
-              {message.role === "user" && (
-                <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0 order-3">
-                  <User className="h-4 w-4" />
-                </div>
-              )}
-            </div>
+              onCopy={copyToClipboard}
+              formatTimestamp={formatTimestamp}
+            />
           ))
         )}
         <div ref={messagesEndRef} />

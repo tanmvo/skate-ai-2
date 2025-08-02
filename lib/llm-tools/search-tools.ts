@@ -319,11 +319,20 @@ export function createSearchTools(studyId: string, dataStream: any) {
         limit?: number;
         minSimilarity?: number;
       }) => {
+        // Emit tool call start event
+        dataStream.writeData({
+          type: 'tool-call-start',
+          toolName: 'search_all_documents',
+          parameters: { query, limit, minSimilarity },
+          timestamp: Date.now()
+        });
+
         if (!query.trim()) {
           throw new Error('Search query cannot be empty');
         }
 
-        const result = await searchAllDocuments(query, studyId, { limit, minSimilarity });
+        try {
+          const result = await searchAllDocuments(query, studyId, { limit, minSimilarity });
         
         // Stream citations if results found
         if (result.results.length > 0) {
@@ -342,7 +351,27 @@ export function createSearchTools(studyId: string, dataStream: any) {
           });
         }
         
-        return formatSearchToolResults(result);
+        const formattedResult = formatSearchToolResults(result);
+        
+        // Emit tool call end event
+        dataStream.writeData({
+          type: 'tool-call-end',
+          toolName: 'search_all_documents',
+          success: true,
+          timestamp: Date.now()
+        });
+        
+        return formattedResult;
+        } catch (error) {
+          // Emit tool call error event
+          dataStream.writeData({
+            type: 'tool-call-end',
+            toolName: 'search_all_documents',
+            success: false,
+            timestamp: Date.now()
+          });
+          throw error;
+        }
       },
     },
     find_document_ids: {
@@ -355,12 +384,41 @@ export function createSearchTools(studyId: string, dataStream: any) {
         documentNames: string[];
         includeAlternatives?: boolean;
       }) => {
+        // Emit tool call start event
+        dataStream.writeData({
+          type: 'tool-call-start',
+          toolName: 'find_document_ids',
+          parameters: { documentNames },
+          timestamp: Date.now()
+        });
+
         if (!documentNames || documentNames.length === 0) {
           throw new Error('At least one document name is required');
         }
 
-        const result = await findDocumentIdsByNames(documentNames, studyId);
-        return formatDocumentLookupResult(result);
+        try {
+          const result = await findDocumentIdsByNames(documentNames, studyId);
+          const formattedResult = formatDocumentLookupResult(result);
+          
+          // Emit tool call end event
+          dataStream.writeData({
+            type: 'tool-call-end',
+            toolName: 'find_document_ids',
+            success: true,
+            timestamp: Date.now()
+          });
+          
+          return formattedResult;
+        } catch (error) {
+          // Emit tool call error event
+          dataStream.writeData({
+            type: 'tool-call-end',
+            toolName: 'find_document_ids',
+            success: false,
+            timestamp: Date.now()
+          });
+          throw error;
+        }
       },
     },
     search_specific_documents: {
@@ -377,6 +435,14 @@ export function createSearchTools(studyId: string, dataStream: any) {
         limit?: number;
         minSimilarity?: number;
       }) => {
+        // Emit tool call start event
+        dataStream.writeData({
+          type: 'tool-call-start',
+          toolName: 'search_specific_documents',
+          parameters: { query, documentIds, limit, minSimilarity },
+          timestamp: Date.now()
+        });
+
         if (!query.trim()) {
           throw new Error('Search query cannot be empty');
         }
@@ -385,7 +451,8 @@ export function createSearchTools(studyId: string, dataStream: any) {
           throw new Error('At least one document ID is required for specific document search');
         }
 
-        const result = await searchSpecificDocuments(query, studyId, documentIds, { limit, minSimilarity });
+        try {
+          const result = await searchSpecificDocuments(query, studyId, documentIds, { limit, minSimilarity });
         
         // Get study context for enhanced error messages
         let context: SearchContext | undefined;
@@ -417,7 +484,27 @@ export function createSearchTools(studyId: string, dataStream: any) {
           });
         }
         
-        return formatSearchToolResults(result, context);
+        const formattedResult = formatSearchToolResults(result, context);
+        
+        // Emit tool call end event
+        dataStream.writeData({
+          type: 'tool-call-end',
+          toolName: 'search_specific_documents',
+          success: true,
+          timestamp: Date.now()
+        });
+        
+        return formattedResult;
+        } catch (error) {
+          // Emit tool call error event
+          dataStream.writeData({
+            type: 'tool-call-end',
+            toolName: 'search_specific_documents',
+            success: false,
+            timestamp: Date.now()
+          });
+          throw error;
+        }
       },
     },
   };
