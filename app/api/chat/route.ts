@@ -100,11 +100,15 @@ You have access to three search tools:
 - **search_specific_documents**: Search within specific documents using document IDs
 
 ## Document Search Workflow:
-**STEP 1**: ALWAYS call find_document_ids first
-**STEP 2**: Use the returned document IDs in search_specific_documents
+⚠️ **CRITICAL**: NEVER pass filenames to search_specific_documents!
+
+**STEP 1**: ALWAYS call find_document_ids first with document filenames
+**STEP 2**: Use the returned document IDs (UUIDs) in search_specific_documents
 
 When responding:
 1. If user mentions specific documents: find_document_ids → search_specific_documents
+   - find_document_ids receives: ["filename.txt"] 
+   - search_specific_documents receives: ["uuid-123-456"]
 2. If general query: search_all_documents  
 3. Present search results and analysis directly - no preliminary messages before calling tools
 4. Provide analysis based on search results with proper citations

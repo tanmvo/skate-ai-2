@@ -451,6 +451,13 @@ export function createSearchTools(studyId: string, dataStream: any) {
           throw new Error('At least one document ID is required for specific document search');
         }
 
+        // Check if any of the provided IDs look like filenames instead of UUIDs
+        const filenamePattern = /\.(txt|pdf|docx|doc)$/i;
+        const potentialFilenames = documentIds.filter(id => filenamePattern.test(id));
+        if (potentialFilenames.length > 0) {
+          throw new Error(`Document IDs cannot be filenames. Found potential filenames: ${potentialFilenames.join(', ')}. Use find_document_ids tool first to convert filenames to document IDs.`);
+        }
+
         try {
           const result = await searchSpecificDocuments(query, studyId, documentIds, { limit, minSimilarity });
         

@@ -10,7 +10,8 @@
       "Bash(npm run dev:*)",
       "Bash(npm run test:run:*)",
       "Bash(npm run lint)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "WebFetch(domain:hamel.dev)"
     ],
     "deny": []
   }
