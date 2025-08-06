@@ -8,7 +8,6 @@ import { Send, Bot, AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import { withRetry } from "@/lib/error-handling";
 import { Citation } from "@/lib/types/citations";
-import { StructuredResponse } from "@/lib/schemas/synthesis-schema";
 import { ProgressiveMessage } from "./ProgressiveMessage";
 
 interface ChatPanelProps {
@@ -21,7 +20,6 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [persistenceErrors, setPersistenceErrors] = useState<Set<string>>(new Set());
   const [streamError, setStreamError] = useState<string | null>(null);
-  const [messageSynthesis, setMessageSynthesis] = useState<Record<string, StructuredResponse>>({});
 
   const saveMessageWithRetry = useCallback(async (
     role: 'USER' | 'ASSISTANT', 
@@ -61,12 +59,12 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     isLoading,
     error,
     reload,
-    data,
   } = useChat({
     api: '/api/chat',
     body: {
       studyId,
     },
+    // Removed onToolCall since we're using search-only approach
     onError: (error) => {
       console.error('Chat error:', error);
       
@@ -107,38 +105,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     },
     onFinish: async (message) => {
       try {
-        const streamData = data || [];
-        
-        // Find synthesis data that matches this specific message
-        // Look for synthesis data with the latest timestamp (most recent)
-        const synthesisItems = streamData.filter((item: unknown) => {
-          const typedItem = item as { type?: string; synthesis?: StructuredResponse; synthesisId?: string; timestamp?: number };
-          return typedItem?.type === 'synthesis-complete';
-        }) as Array<{ type: string; synthesis?: StructuredResponse; synthesisId?: string; timestamp?: number }>;
-        
-        // Get the most recent synthesis data (latest timestamp)
-        const latestSynthesis = synthesisItems.length > 0 
-          ? synthesisItems.reduce((latest, current) => 
-              (current.timestamp || 0) > (latest.timestamp || 0) ? current : latest
-            )
-          : null;
-        
-        // Only use synthesis data if this message has citation markers (indicating it should be structured)
-        const messageHasCitations = message.content.includes('{{cite:');
-        
-        if (latestSynthesis?.synthesis && messageHasCitations && message.role === 'assistant') {
-          // Store synthesis response for structured rendering
-          setMessageSynthesis(prev => ({
-            ...prev,
-            [message.id]: latestSynthesis.synthesis!
-          }));
-          
-          // Save message with structured citations
-          await saveMessageWithRetry('ASSISTANT', message.content, latestSynthesis.synthesis.citations);
-          return;
-        }
-        
-        // Save message without citations
+        // Simplified: Just save the message content since we're using search-only approach
         await saveMessageWithRetry('ASSISTANT', message.content);
         
         // Remove any persistence errors for this message
@@ -204,17 +171,8 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
 
   const retryMessagePersistence = async (messageId: string, role: 'USER' | 'ASSISTANT', content: string) => {
     try {
-      let citations: Citation[] | undefined = undefined;
-      
-      if (role === 'ASSISTANT') {
-        // Check for structured response
-        const synthesis = messageSynthesis[messageId];
-        if (synthesis) {
-          citations = synthesis.citations;
-        }
-      }
-      
-      await saveMessageWithRetry(role, content, citations);
+      // Simplified: No synthesis citations since we're using search-only approach
+      await saveMessageWithRetry(role, content);
       setPersistenceErrors(prev => {
         const next = new Set(prev);
         next.delete(messageId);
@@ -267,19 +225,11 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
             </div>
           </div>
         ) : (
-          messages.map((message, index) => {
-            // Only pass dataStream to the last assistant message (currently being generated)
-            const isLastMessage = index === messages.length - 1;
-            const isAssistantMessage = message.role === 'assistant';
-            const shouldReceiveDataStream = isLastMessage && isAssistantMessage && isLoading;
-            
+          messages.map((message) => {
             return (
               <ProgressiveMessage
                 key={message.id}
                 message={message}
-                dataStream={shouldReceiveDataStream ? (data || []) : []}
-                citations={[]}
-                structuredResponse={messageSynthesis[message.id]}
                 persistenceError={persistenceErrors.has(message.id)}
                 onCitationClick={handleCitationClick}
                 onRetryPersistence={() => retryMessagePersistence(

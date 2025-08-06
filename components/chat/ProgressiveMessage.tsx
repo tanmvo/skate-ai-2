@@ -4,18 +4,11 @@ import { Bot, User, AlertCircle, RefreshCw, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Citation } from "@/lib/types/citations";
-import { StructuredResponse } from "@/lib/schemas/synthesis-schema";
-import { StructuredMessage } from "./StructuredMessage";
-import { ThinkingBubble } from "./ThinkingBubble";
-import { CitationErrorBoundary } from "./CitationErrorBoundary";
-import { useToolCallData } from "@/lib/hooks/useToolCallData";
-import { shouldShowThinkingPhase, getCurrentMessagePhase } from "@/lib/utils/message-phases";
+// Simplified for search-only approach - removed synthesis dependencies
+// Removed progress UI dependencies for Phase 1 - using standard AI SDK patterns
 
 interface ProgressiveMessageProps {
   message: Message;
-  dataStream?: unknown[];
-  citations?: Citation[];
-  structuredResponse?: StructuredResponse;
   persistenceError?: boolean;
   onCitationClick?: (citation: Citation) => void;
   onRetryPersistence?: () => void;
@@ -25,21 +18,12 @@ interface ProgressiveMessageProps {
 
 export function ProgressiveMessage({
   message,
-  dataStream = [],
-  structuredResponse,
   persistenceError = false,
-  onCitationClick,
   onRetryPersistence,
   onCopy,
   formatTimestamp,
 }: ProgressiveMessageProps) {
-  const toolCallData = useToolCallData(dataStream, message.id);
-  const shouldShowThinking = shouldShowThinkingPhase(message, toolCallData.events);
-  const currentPhase = getCurrentMessagePhase(toolCallData.events);
-
-  // Simple approach: Only use the structuredResponse prop from ChatPanel
-  // This ensures each message only shows its own synthesis data
-  const shouldShowStructured = message.role === 'assistant' && structuredResponse;
+  // Simplified for search-only approach - removed synthesis logic
 
   if (message.role === "user") {
     return (
@@ -59,40 +43,18 @@ export function ProgressiveMessage({
       </div>
 
       <div className="max-w-[80%] space-y-3 order-1">
-        {/* Thinking Phase */}
-        {shouldShowThinking && (
-          <CitationErrorBoundary fallback={<div className="text-xs text-muted-foreground">Processing...</div>}>
-            <ThinkingBubble
-              toolCalls={toolCallData.events}
-              isActive={currentPhase === 'thinking'}
-              className="animate-fade-in"
-            />
-          </CitationErrorBoundary>
-        )}
-
-        {/* Results Phase */}
-        {(message.content || currentPhase === 'results') && (
+        {/* Simplified message rendering */}
+        {message.content && (
           <div className="animate-fade-in delay-200">
-            {/* Use only the structuredResponse prop */}
-            {shouldShowStructured ? (
-              <CitationErrorBoundary>
-                <StructuredMessage
-                  synthesis={structuredResponse!}
-                  onCitationClick={onCitationClick}
-                />
-              </CitationErrorBoundary>
-            ) : (
-              // Standard message rendering for non-synthesis responses
-              <Card className="bg-muted">
-                <CardContent className="p-3">
-                  <div className="prose prose-sm max-w-none dark:prose-invert">
-                    <div className="whitespace-pre-wrap text-sm">
-                      {message.content}
-                    </div>
+            <Card className="bg-muted">
+              <CardContent className="p-3">
+                <div className="prose prose-sm max-w-none dark:prose-invert">
+                  <div className="whitespace-pre-wrap text-sm">
+                    {message.content}
                   </div>
-                </CardContent>
-              </Card>
-            )}
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

@@ -60,7 +60,7 @@ export function CitationPanel({
           <div className="space-y-2">
             {citations.map((citation, index) => {
               const citationKey = citation.id;
-              const displayText = citation.relevantText;
+              const displayText = citation.content;
                   
               return (
                 <Card key={citationKey} className="bg-muted/20">

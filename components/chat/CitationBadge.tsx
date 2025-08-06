@@ -46,7 +46,7 @@ export function CitationBadge({
           <div className="space-y-2">
             <p className="font-medium text-sm">{citation.documentName}</p>
             <p className="text-xs text-muted-foreground">
-              {citation.relevantText}
+              {citation.content}
             </p>
             {citation.pageNumber && (
               <p className="text-xs text-muted-foreground">
