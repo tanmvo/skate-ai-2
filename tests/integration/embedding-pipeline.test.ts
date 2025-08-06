@@ -91,7 +91,8 @@ describe('Embedding Pipeline Integration Tests', () => {
       });
 
       // Step 4: Mock embedding generation
-      const mockVoyageClient = require('voyageai').VoyageAIClient();
+      const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
+      const mockVoyageClient = new VoyageAIClient();
       const mockEmbeddings = chunks.map((_, index) => 
         Array.from({ length: 1536 }, (_, i) => Math.sin((index + 1) * i / 100))
       );
@@ -216,7 +217,8 @@ describe('Embedding Pipeline Integration Tests', () => {
         [0.7, 0.2, 0.1],    // Somewhat similar to query
       ];
 
-      const mockVoyageClient = require('voyageai').VoyageAIClient();
+      const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
+      const mockVoyageClient = new VoyageAIClient();
       mockVoyageClient.embed.mockResolvedValue({
         data: [{ embedding: queryEmbedding }],
       });
@@ -280,7 +282,8 @@ describe('Embedding Pipeline Integration Tests', () => {
       const queryEmbedding = [1, 0, 0];
       const chunkEmbedding = [0.9, 0.1, 0];
 
-      const mockVoyageClient = require('voyageai').VoyageAIClient();
+      const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
+      const mockVoyageClient = new VoyageAIClient();
       mockVoyageClient.embed.mockResolvedValue({
         data: [{ embedding: queryEmbedding }],
       });
@@ -355,7 +358,8 @@ describe('Embedding Pipeline Integration Tests', () => {
     });
 
     it('should handle embedding generation failures', async () => {
-      const mockVoyageClient = require('voyageai').VoyageAIClient();
+      const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
+      const mockVoyageClient = new VoyageAIClient();
       mockVoyageClient.embed.mockRejectedValue(new Error('API quota exceeded'));
 
       await expect(generateBatchEmbeddings(['test text'])).rejects.toThrow(
@@ -374,7 +378,8 @@ describe('Embedding Pipeline Integration Tests', () => {
       const mockPrisma = require('@/lib/prisma').prisma;
       mockPrisma.documentChunk.findMany.mockResolvedValue([]);
 
-      const mockVoyageClient = require('voyageai').VoyageAIClient();
+      const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
+      const mockVoyageClient = new VoyageAIClient();
       mockVoyageClient.embed.mockResolvedValue({
         data: [{ embedding: [0.1, 0.2, 0.3] }],
       });
@@ -391,7 +396,8 @@ describe('Embedding Pipeline Integration Tests', () => {
         `This is chunk number ${i} with some content for testing batch processing.`
       );
 
-      const mockVoyageClient = require('voyageai').VoyageAIClient();
+      const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
+      const mockVoyageClient = new VoyageAIClient();
       
       // Mock the API to handle batches
       mockVoyageClient.embed.mockImplementation(({ input }) => ({

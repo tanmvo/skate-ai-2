@@ -16,47 +16,24 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
       };
     }
 
-    // Filter for all relevant streaming events with enhanced type safety
-    const streamingEvents = dataStream
+    // Filter for tool call events with enhanced type safety
+    const toolCallEvents = dataStream
       .filter((item): item is ChatStreamData => {
         // Comprehensive type checking to prevent runtime errors
         try {
-          if (typeof item !== 'object' || item === null || !('type' in item)) {
-            return false;
-          }
-          
-          const itemType = (item as Record<string, unknown>).type;
-          if (typeof itemType !== 'string') {
-            return false;
-          }
-
-          // Include all streaming event types for comprehensive tool call tracking
-          const validTypes = [
-            'tool-call-start',
-            'tool-call-end', 
-            'synthesis-progress',
-            'synthesis-complete',
-            'study-context-error',
-            'stream-error',
-            'execution-error',
-            'fallback-response',
-            'tool-calls-complete'
-          ];
-          
-          return validTypes.includes(itemType);
+          return (
+            typeof item === 'object' &&
+            item !== null &&
+            'type' in item &&
+            typeof (item as Record<string, unknown>).type === 'string' &&
+            ((item as Record<string, unknown>).type === 'tool-call-start' || (item as Record<string, unknown>).type === 'tool-call-end')
+          );
         } catch (error) {
           // Gracefully handle any unexpected errors in type checking
-          console.warn('Error filtering streaming events:', error);
+          console.warn('Error filtering tool call events:', error);
           return false;
         }
       })
-      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-
-    // Extract tool call events for backward compatibility
-    const toolCallEvents = streamingEvents
-      .filter((item): item is ChatStreamData => 
-        item.type === 'tool-call-start' || item.type === 'tool-call-end'
-      )
       .map((item): ToolCallEvent => {
         // Safe mapping with fallback values
         try {
@@ -97,28 +74,11 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
       ? Math.max(...toolCallEvents.map(e => e.timestamp))
       : 0;
 
-    // Extract synthesis progress events
-    const progressEvents = streamingEvents.filter(
-      (item): item is ChatStreamData => item.type === 'synthesis-progress'
-    );
-
-    // Extract error events for resilience monitoring
-    const errorEvents = streamingEvents.filter(
-      (item): item is ChatStreamData => 
-        item.type === 'stream-error' || 
-        item.type === 'execution-error' || 
-        item.type === 'study-context-error'
-    );
-
     return {
       messageId,
       events: toolCallEvents,
       isActive,
       lastActivity,
-      streamingEvents,
-      progressEvents,
-      errorEvents,
-      hasErrors: errorEvents.length > 0,
     };
   }, [dataStream, messageId]);
 }

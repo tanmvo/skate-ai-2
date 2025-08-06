@@ -334,23 +334,6 @@ export function createSearchTools(studyId: string, dataStream: any) {
         try {
           const result = await searchAllDocuments(query, studyId, { limit, minSimilarity });
         
-        // Stream citations if results found
-        if (result.results.length > 0) {
-          const citations = result.results.map((chunk) => ({
-            documentId: chunk.documentId,
-            documentName: chunk.documentName,
-            chunkId: chunk.chunkId,
-            content: chunk.content.slice(0, 200) + (chunk.content.length > 200 ? '...' : ''),
-            similarity: chunk.similarity,
-            chunkIndex: chunk.chunkIndex,
-          }));
-
-          dataStream.writeData({
-            type: 'citations',
-            citations
-          });
-        }
-        
         const formattedResult = formatSearchToolResults(result);
         
         // Emit tool call end event
@@ -472,23 +455,6 @@ export function createSearchTools(studyId: string, dataStream: any) {
           };
         } catch (error) {
           console.warn('Failed to get study context for error formatting:', error);
-        }
-        
-        // Stream citations if results found
-        if (result.results.length > 0) {
-          const citations = result.results.map((chunk) => ({
-            documentId: chunk.documentId,
-            documentName: chunk.documentName,
-            chunkId: chunk.chunkId,
-            content: chunk.content.slice(0, 200) + (chunk.content.length > 200 ? '...' : ''),
-            similarity: chunk.similarity,
-            chunkIndex: chunk.chunkIndex,
-          }));
-
-          dataStream.writeData({
-            type: 'citations',
-            citations
-          });
         }
         
         const formattedResult = formatSearchToolResults(result, context);

@@ -46,11 +46,13 @@ export function CitationBadge({
           <div className="space-y-2">
             <p className="font-medium text-sm">{citation.documentName}</p>
             <p className="text-xs text-muted-foreground">
-              {citation.content}
+              {citation.relevantText}
             </p>
-            <p className="text-xs text-muted-foreground">
-              {Math.round(citation.similarity * 100)}% match
-            </p>
+            {citation.pageNumber && (
+              <p className="text-xs text-muted-foreground">
+                Page {citation.pageNumber}
+              </p>
+            )}
           </div>
         </TooltipContent>
       </Tooltip>

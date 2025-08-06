@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ChatPanel } from '../../../components/chat/ChatPanel';
 import { renderWithProviders } from '../../test-utils';
-import { Citation } from '../../../lib/types/citations';
+import { DocumentCitation } from '../../../lib/schemas/synthesis-schema';
 
 // Mock the citation components
 vi.mock('../../../components/chat/CitationBadge', () => ({
@@ -21,9 +21,9 @@ vi.mock('../../../components/chat/CitationPanel', () => ({
   CitationPanel: ({ citations, onCitationClick }: any) => (
     <div data-testid="citation-panel">
       <span>Citations: {citations?.length || 0}</span>
-      {citations?.map((citation: Citation, index: number) => (
+      {citations?.map((citation: DocumentCitation, index: number) => (
         <button
-          key={citation.chunkId}
+          key={citation.id}
           data-testid={`citation-panel-item-${index}`}
           onClick={() => onCitationClick?.(citation)}
         >
@@ -60,22 +60,20 @@ Object.assign(navigator, {
 describe('ChatPanel Citation Integration', () => {
   const studyId = 'study_test_123';
   
-  const mockCitations: Citation[] = [
+  const mockCitations: DocumentCitation[] = [
     {
+      id: 'cite_doc_1',
       documentId: 'doc_1',
       documentName: 'first-document.pdf',
-      chunkId: 'chunk_1',
-      content: 'This is content from the first document.',
-      similarity: 0.95,
-      chunkIndex: 0
+      relevantText: 'This is content from the first document.',
+      pageNumber: 5
     },
     {
+      id: 'cite_doc_2',
       documentId: 'doc_2',
       documentName: 'second-document.pdf',
-      chunkId: 'chunk_2',
-      content: 'Content from the second document.',
-      similarity: 0.82,
-      chunkIndex: 1
+      relevantText: 'Content from the second document.',
+      pageNumber: 12
     }
   ];
 
@@ -453,13 +451,12 @@ describe('ChatPanel Citation Integration', () => {
 
   describe('Performance and Edge Cases', () => {
     it('should handle large numbers of citations efficiently', () => {
-      const manyCitations: Citation[] = Array.from({ length: 50 }, (_, i) => ({
+      const manyCitations: DocumentCitation[] = Array.from({ length: 50 }, (_, i) => ({
+        id: `cite_doc_${i}`,
         documentId: `doc_${i}`,
         documentName: `document-${i}.pdf`,
-        chunkId: `chunk_${i}`,
-        content: `Content from document ${i}`,
-        similarity: 0.9 - (i * 0.01),
-        chunkIndex: i
+        relevantText: `Content from document ${i}`,
+        pageNumber: i + 1
       }));
 
       mockUseChat.data = [

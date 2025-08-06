@@ -3,16 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen } from '@testing-library/react';
 import { CitationBadge } from '../../../components/chat/CitationBadge';
 import { renderWithProviders } from '../../test-utils';
-import { Citation } from '../../../lib/types/citations';
+import { DocumentCitation } from '../../../lib/schemas/synthesis-schema';
 
 describe('CitationBadge', () => {
-  const mockCitation: Citation = {
+  const mockCitation: DocumentCitation = {
+    id: 'cite_doc_123',
     documentId: 'doc_123',
     documentName: 'test-document.pdf',
-    chunkId: 'chunk_456',
-    content: 'This is sample content from the document that shows what the citation contains.',
-    similarity: 0.85,
-    chunkIndex: 2
+    relevantText: 'This is sample content from the document that shows what the citation contains.',
+    pageNumber: 5
   };
 
   const mockOnClick = vi.fn();
@@ -133,15 +132,15 @@ describe('CitationBadge', () => {
     expect(badge.className).toContain('hover:bg-primary');
   });
 
-  it('should handle citations with different similarity scores', () => {
-    const lowSimilarityCitation: Citation = {
+  it('should handle citations with different page numbers', () => {
+    const pageNumberCitation: DocumentCitation = {
       ...mockCitation,
-      similarity: 0.12
+      pageNumber: 12
     };
 
     renderWithProviders(
       <CitationBadge
-        citation={lowSimilarityCitation}
+        citation={pageNumberCitation}
         index={0}
         onClick={mockOnClick}
       />
@@ -150,12 +149,12 @@ describe('CitationBadge', () => {
     const badge = screen.getByText('[1]');
     expect(badge).toBeDefined();
     
-    // Badge should render regardless of similarity score
+    // Badge should render regardless of page number
     expect(badge.className).toContain('cursor-pointer');
   });
 
   it('should handle citations with long document names', () => {
-    const longNameCitation: Citation = {
+    const longNameCitation: DocumentCitation = {
       ...mockCitation,
       documentName: 'This is a very long document name that might overflow the tooltip area and needs to be handled properly.pdf'
     };
@@ -172,10 +171,10 @@ describe('CitationBadge', () => {
     expect(badge).toBeDefined();
   });
 
-  it('should handle citations with empty content', () => {
-    const emptyCitation: Citation = {
+  it('should handle citations with empty relevantText', () => {
+    const emptyCitation: DocumentCitation = {
       ...mockCitation,
-      content: ''
+      relevantText: ''
     };
 
     renderWithProviders(
@@ -191,10 +190,10 @@ describe('CitationBadge', () => {
   });
 
   it('should handle citations with special characters', () => {
-    const specialCharCitation: Citation = {
+    const specialCharCitation: DocumentCitation = {
       ...mockCitation,
       documentName: 'document with "quotes" & special chars (1).pdf',
-      content: 'Content with emojis 🔥 and symbols @#$%^&*()'
+      relevantText: 'Content with emojis 🔥 and symbols @#$%^&*()'
     };
 
     renderWithProviders(
@@ -240,7 +239,7 @@ describe('CitationBadge', () => {
     // Rerender with different props
     rerender(
       <CitationBadge
-        citation={{...mockCitation, similarity: 0.95}}
+        citation={{...mockCitation, pageNumber: 10}}
         index={5}
         onClick={mockOnClick}
       />

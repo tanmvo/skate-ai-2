@@ -4,9 +4,10 @@ import { Bot, User, AlertCircle, RefreshCw, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Citation } from "@/lib/types/citations";
-import { CitationBadge } from "./CitationBadge";
-import { CitationPanel } from "./CitationPanel";
+import { StructuredResponse } from "@/lib/schemas/synthesis-schema";
+import { StructuredMessage } from "./StructuredMessage";
 import { ThinkingBubble } from "./ThinkingBubble";
+import { CitationErrorBoundary } from "./CitationErrorBoundary";
 import { useToolCallData } from "@/lib/hooks/useToolCallData";
 import { shouldShowThinkingPhase, getCurrentMessagePhase } from "@/lib/utils/message-phases";
 
@@ -14,6 +15,7 @@ interface ProgressiveMessageProps {
   message: Message;
   dataStream?: unknown[];
   citations?: Citation[];
+  structuredResponse?: StructuredResponse;
   persistenceError?: boolean;
   onCitationClick?: (citation: Citation) => void;
   onRetryPersistence?: () => void;
@@ -24,7 +26,7 @@ interface ProgressiveMessageProps {
 export function ProgressiveMessage({
   message,
   dataStream = [],
-  citations = [],
+  structuredResponse,
   persistenceError = false,
   onCitationClick,
   onRetryPersistence,
@@ -34,6 +36,10 @@ export function ProgressiveMessage({
   const toolCallData = useToolCallData(dataStream, message.id);
   const shouldShowThinking = shouldShowThinkingPhase(message, toolCallData.events);
   const currentPhase = getCurrentMessagePhase(toolCallData.events);
+
+  // Simple approach: Only use the structuredResponse prop from ChatPanel
+  // This ensures each message only shows its own synthesis data
+  const shouldShowStructured = message.role === 'assistant' && structuredResponse;
 
   if (message.role === "user") {
     return (
@@ -55,43 +61,37 @@ export function ProgressiveMessage({
       <div className="max-w-[80%] space-y-3 order-1">
         {/* Thinking Phase */}
         {shouldShowThinking && (
-          <ThinkingBubble
-            toolCalls={toolCallData.events}
-            isActive={currentPhase === 'thinking'}
-            className="animate-fade-in"
-          />
+          <CitationErrorBoundary fallback={<div className="text-xs text-muted-foreground">Processing...</div>}>
+            <ThinkingBubble
+              toolCalls={toolCallData.events}
+              isActive={currentPhase === 'thinking'}
+              className="animate-fade-in"
+            />
+          </CitationErrorBoundary>
         )}
 
         {/* Results Phase */}
         {(message.content || currentPhase === 'results') && (
           <div className="animate-fade-in delay-200">
-            <Card className="bg-muted">
-              <CardContent className="p-3">
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <div className="whitespace-pre-wrap text-sm">
-                    {message.content}
-                    {citations.length > 0 && (
-                      <span className="inline-flex flex-wrap ml-1">
-                        {citations.map((citation, index) => (
-                          <CitationBadge
-                            key={citation.chunkId}
-                            citation={citation}
-                            index={index}
-                            onClick={onCitationClick}
-                          />
-                        ))}
-                      </span>
-                    )}
+            {/* Use only the structuredResponse prop */}
+            {shouldShowStructured ? (
+              <CitationErrorBoundary>
+                <StructuredMessage
+                  synthesis={structuredResponse!}
+                  onCitationClick={onCitationClick}
+                />
+              </CitationErrorBoundary>
+            ) : (
+              // Standard message rendering for non-synthesis responses
+              <Card className="bg-muted">
+                <CardContent className="p-3">
+                  <div className="prose prose-sm max-w-none dark:prose-invert">
+                    <div className="whitespace-pre-wrap text-sm">
+                      {message.content}
+                    </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-
-            {citations.length > 0 && (
-              <CitationPanel
-                citations={citations}
-                onCitationClick={onCitationClick}
-              />
+                </CardContent>
+              </Card>
             )}
           </div>
         )}

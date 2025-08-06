@@ -73,9 +73,9 @@ describe('Chat Interaction Flow', () => {
     
     expect(mockUseChat.handleInputChange).toHaveBeenCalled();
 
-    // User submits message
-    const sendButton = document.querySelector('button[type="submit"]');
-    fireEvent.click(sendButton!);
+    // User submits message - simulate form submit directly to avoid jsdom issues
+    const form = document.querySelector('form');
+    fireEvent.submit(form!);
     expect(mockUseChat.handleSubmit).toHaveBeenCalled();
   });
 

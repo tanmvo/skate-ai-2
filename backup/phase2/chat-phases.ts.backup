@@ -23,38 +23,17 @@ export interface ToolCallData {
   events: ToolCallEvent[];
   isActive: boolean;
   lastActivity: number;
-  streamingEvents?: ChatStreamData[];
-  progressEvents?: ChatStreamData[];
-  errorEvents?: ChatStreamData[];
-  hasErrors?: boolean;
 }
 
 
 export interface ChatStreamData {
-  type: 'citations' | 'tool-call-start' | 'tool-call-end' | 'study-context-error' | 'stream-error' | 'execution-error' | 'fallback-response' | 'tool-calls-complete' | 'synthesis-progress' | 'synthesis-complete';
+  type: 'citations' | 'tool-call-start' | 'tool-call-end';
   citations?: unknown[];
   toolName?: string;
   parameters?: Record<string, unknown>;
   result?: string;
   success?: boolean;
   timestamp?: number;
-  error?: string;
-  details?: string;
-  retryable?: boolean;
-  message?: string;
-  stepType?: string;
-  toolCount?: number;
-  stage?: 'searching' | 'search-complete' | 'search-error' | 'grouping' | 'analyzing';
-  progress?: {
-    current?: number;
-    total?: number;
-    query?: string;
-    resultCount?: number;
-    error?: string;
-    message?: string;
-  };
-  synthesis?: unknown;
-  synthesisId?: string;
 }
 
 export interface ThinkingContent {

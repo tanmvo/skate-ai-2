@@ -1,17 +1,26 @@
-export interface Citation {
-  documentId: string;
-  documentName: string;
-  chunkId: string;
-  content: string;
-  similarity: number;
-  chunkIndex: number;
-}
+// Re-export types from synthesis schema for backward compatibility
+export type { 
+  Citation, 
+  DocumentCitation,
+  StructuredResponse 
+} from '../schemas/synthesis-schema';
 
+export { 
+  structuredResponseSchema 
+} from '../schemas/synthesis-schema';
+
+// Import types for use in local interface
+import type { DocumentCitation, StructuredResponse } from '../schemas/synthesis-schema';
+
+/**
+ * Message interface with citation support
+ */
 export interface MessageWithCitations {
   id: string;
   role: 'USER' | 'ASSISTANT';
   content: string;
-  citations?: Citation[];
+  citations?: DocumentCitation[];
+  structuredResponse?: StructuredResponse;
   timestamp: Date;
   studyId: string;
 }
