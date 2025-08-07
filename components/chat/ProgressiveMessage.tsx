@@ -100,7 +100,9 @@ export function ProgressiveMessage({
             
             // Extract search query and result count
             const searchQuery = toolInvocation.args?.query as string || '';
-            const resultText = typeof toolInvocation.result === 'string' ? toolInvocation.result : '';
+            const resultText = (toolInvocation.state === 'result' && typeof toolInvocation.result === 'string') 
+              ? toolInvocation.result 
+              : '';
             const resultCount = resultText.match(/Found (\d+) relevant passages?/i)?.[1];
             
             return (
@@ -170,7 +172,9 @@ export function ProgressiveMessage({
               
               // Extract search query and result count
               const searchQuery = toolInvocation.args?.query as string || '';
-              const resultText = typeof toolInvocation.result === 'string' ? toolInvocation.result : '';
+              const resultText = (toolInvocation.state === 'result' && 'result' in toolInvocation && typeof toolInvocation.result === 'string') 
+                ? toolInvocation.result 
+                : '';
               const resultCount = resultText.match(/Found (\d+) relevant passages?/i)?.[1];
               
               return (
