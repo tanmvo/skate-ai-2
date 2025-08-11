@@ -34,6 +34,10 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
           const validTypes = [
             'tool-call-start',
             'tool-call-end', 
+            'data-thinking',
+            'data-complete',
+            'data-error',
+            'data-progress',
             'synthesis-progress',
             'synthesis-complete',
             'study-context-error',
@@ -52,14 +56,47 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
       })
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-    // Extract tool call events for backward compatibility
+    // Extract tool call events for backward compatibility (v4 events + v5 data events)
     const toolCallEvents = streamingEvents
       .filter((item): item is ChatStreamData => 
-        item.type === 'tool-call-start' || item.type === 'tool-call-end'
+        item.type === 'tool-call-start' || 
+        item.type === 'tool-call-end' ||
+        item.type === 'data-thinking' ||
+        item.type === 'data-complete' ||
+        item.type === 'data-error'
       )
       .map((item): ToolCallEvent => {
-        // Safe mapping with fallback values
+        // Safe mapping with fallback values - convert v5 data events to tool call format
         try {
+          // Handle v5 data stream events
+          if (item.type === 'data-thinking') {
+            return {
+              type: 'tool-call-start',
+              toolName: 'search', // Generic tool name for v5 events
+              parameters: { query: item.data || '' },
+              timestamp: Date.now(),
+            };
+          } else if (item.type === 'data-complete') {
+            return {
+              type: 'tool-call-end',
+              toolName: 'search',
+              parameters: {},
+              result: typeof item.data === 'string' ? item.data : undefined,
+              timestamp: Date.now(),
+              success: true,
+            };
+          } else if (item.type === 'data-error') {
+            return {
+              type: 'tool-call-end',
+              toolName: 'search',
+              parameters: {},
+              result: typeof item.data === 'string' ? item.data : undefined,
+              timestamp: Date.now(),
+              success: false,
+            };
+          }
+          
+          // Handle legacy v4 events
           return {
             type: item.type as 'tool-call-start' | 'tool-call-end',
             toolName: typeof item.toolName === 'string' ? item.toolName : '',
@@ -172,6 +209,8 @@ function getToolDisplayText(toolName: string, isActive: boolean): string {
       return `Searching specific documents${activeText}`;
     case 'search_all_documents':
       return `Searching all documents${activeText}`;
+    case 'search':
+      return `Searching documents${activeText}`;
     default:
       return `Processing${activeText}`;
   }
@@ -202,6 +241,8 @@ export function getToolCallSummary(toolCallEvents: ToolCallEvent[]): string[] {
         return 'Searched specific documents';
       case 'search_all_documents':
         return 'Searched all documents';
+      case 'search':
+        return 'Search completed';
       default:
         return 'Completed processing';
     }

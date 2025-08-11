@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { tool } from 'ai';
 import { findRelevantChunks, SearchResult } from '../vector-search';
 import { validateDocumentAccess, getDocumentNames, findDocumentIdsByNames, getStudyDocumentContext, DocumentLookupResult } from '../data';
 
@@ -302,29 +303,24 @@ export const searchToolDefinitions = {
 };
 
 /**
- * Create AI SDK v4 compatible tool definitions with Zod schemas
+ * Create AI SDK v5 compatible tool definitions using tool() function
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createSearchTools(studyId: string, dataStream: any) {
   return {
-    search_all_documents: {
+    search_all_documents: tool({
       description: 'Search across all documents in the current study for relevant content',
-      parameters: z.object({
+      inputSchema: z.object({
         query: z.string().describe('The search query to find relevant content'),
-        limit: z.number().min(1).max(10).optional().describe('Maximum number of results to return (default: 5)'),
+        limit: z.number().min(1).max(5).optional().describe('Maximum number of results to return (default: 3)'),
         minSimilarity: z.number().min(0).max(1).optional().describe('Minimum similarity score for results (default: 0.1)'),
       }),
-      execute: async ({ query, limit = 5, minSimilarity = 0.1 }: {
-        query: string;
-        limit?: number;
-        minSimilarity?: number;
-      }) => {
-        // Emit tool call start event
-        dataStream.writeData({
-          type: 'tool-call-start',
-          toolName: 'search_all_documents',
-          parameters: { query, limit, minSimilarity },
-          timestamp: Date.now()
+      execute: async ({ query, limit = 3, minSimilarity = 0.1 }) => {
+        // Emit search progress event using v5 custom data stream pattern
+        dataStream.write({
+          type: 'data-thinking',
+          data: `Searching all documents for: "${query}"`,
+          transient: true, // Won't be saved in message history
         });
 
         if (!query.trim()) {
@@ -332,47 +328,45 @@ export function createSearchTools(studyId: string, dataStream: any) {
         }
 
         try {
+          console.log('🔍 Starting search for:', query);
           const result = await searchAllDocuments(query, studyId, { limit, minSimilarity });
-        
-        const formattedResult = formatSearchToolResults(result);
-        
-        // Emit tool call end event
-        dataStream.writeData({
-          type: 'tool-call-end',
-          toolName: 'search_all_documents',
-          success: true,
-          timestamp: Date.now()
-        });
-        
-        return formattedResult;
+          console.log('📊 Search result:', { totalFound: result.totalFound, resultsLength: result.results.length });
+          
+          const formattedResult = formatSearchToolResults(result);
+          console.log('📝 Formatted result length:', formattedResult.length);
+          
+          // Emit search completion event
+          dataStream.write({
+            type: 'data-complete',
+            data: `Found ${result.totalFound} relevant passage${result.totalFound === 1 ? '' : 's'}`,
+            transient: true,
+          });
+          
+          console.log('✅ Tool execution completed successfully');
+          return formattedResult;
         } catch (error) {
-          // Emit tool call error event
-          dataStream.writeData({
-            type: 'tool-call-end',
-            toolName: 'search_all_documents',
-            success: false,
-            timestamp: Date.now()
+          // Emit search error event
+          dataStream.write({
+            type: 'data-error',
+            data: 'Search failed - please try again',
+            transient: true,
           });
           throw error;
         }
       },
-    },
-    find_document_ids: {
+    }),
+    find_document_ids: tool({
       description: 'Find document IDs by their filenames. Use this before search_specific_documents when users mention specific document names.',
-      parameters: z.object({
+      inputSchema: z.object({
         documentNames: z.array(z.string()).min(1).describe('Array of document filenames to look up (e.g., ["research.txt", "data.pdf"])'),
         includeAlternatives: z.boolean().optional().describe('Include similar document names if exact match fails (default: true)'),
       }),
-      execute: async ({ documentNames }: {
-        documentNames: string[];
-        includeAlternatives?: boolean;
-      }) => {
-        // Emit tool call start event
-        dataStream.writeData({
-          type: 'tool-call-start',
-          toolName: 'find_document_ids',
-          parameters: { documentNames },
-          timestamp: Date.now()
+      execute: async ({ documentNames }) => {
+        // Emit document lookup progress event
+        dataStream.write({
+          type: 'data-thinking',
+          data: `Looking up documents: ${documentNames.join(', ')}`,
+          transient: true,
         });
 
         if (!documentNames || documentNames.length === 0) {
@@ -383,47 +377,39 @@ export function createSearchTools(studyId: string, dataStream: any) {
           const result = await findDocumentIdsByNames(documentNames, studyId);
           const formattedResult = formatDocumentLookupResult(result);
           
-          // Emit tool call end event
-          dataStream.writeData({
-            type: 'tool-call-end',
-            toolName: 'find_document_ids',
-            success: true,
-            timestamp: Date.now()
+          // Emit document lookup completion event
+          dataStream.write({
+            type: 'data-complete',
+            data: `Found ${result.found.length} document${result.found.length === 1 ? '' : 's'}`,
+            transient: true,
           });
           
           return formattedResult;
         } catch (error) {
-          // Emit tool call error event
-          dataStream.writeData({
-            type: 'tool-call-end',
-            toolName: 'find_document_ids',
-            success: false,
-            timestamp: Date.now()
+          // Emit document lookup error event
+          dataStream.write({
+            type: 'data-error',
+            data: 'Document lookup failed - please try again',
+            transient: true,
           });
           throw error;
         }
       },
-    },
-    search_specific_documents: {
+    }),
+    search_specific_documents: tool({
       description: 'Search within specific documents only. Use when the user mentions specific document names or wants to search particular files.',
-      parameters: z.object({
+      inputSchema: z.object({
         query: z.string().describe('The search query to find relevant content'),
         documentIds: z.array(z.string()).min(1).describe('Array of document IDs to search within'),
-        limit: z.number().min(1).max(10).optional().describe('Maximum number of results to return (default: 5)'),
+        limit: z.number().min(1).max(5).optional().describe('Maximum number of results to return (default: 3)'),
         minSimilarity: z.number().min(0).max(1).optional().describe('Minimum similarity score for results (default: 0.1)'),
       }),
-      execute: async ({ query, documentIds, limit = 5, minSimilarity = 0.1 }: {
-        query: string;
-        documentIds: string[];
-        limit?: number;
-        minSimilarity?: number;
-      }) => {
-        // Emit tool call start event
-        dataStream.writeData({
-          type: 'tool-call-start',
-          toolName: 'search_specific_documents',
-          parameters: { query, documentIds, limit, minSimilarity },
-          timestamp: Date.now()
+      execute: async ({ query, documentIds, limit = 3, minSimilarity = 0.1 }) => {
+        // Emit specific document search progress event
+        dataStream.write({
+          type: 'data-thinking',
+          data: `Searching ${documentIds.length} specific document${documentIds.length === 1 ? '' : 's'} for: "${query}"`,
+          transient: true,
         });
 
         if (!query.trim()) {
@@ -459,27 +445,25 @@ export function createSearchTools(studyId: string, dataStream: any) {
         
         const formattedResult = formatSearchToolResults(result, context);
         
-        // Emit tool call end event
-        dataStream.writeData({
-          type: 'tool-call-end',
-          toolName: 'search_specific_documents',
-          success: true,
-          timestamp: Date.now()
+        // Emit specific document search completion event
+        dataStream.write({
+          type: 'data-complete',
+          data: `Found ${result.totalFound} relevant passage${result.totalFound === 1 ? '' : 's'} in specified documents`,
+          transient: true,
         });
         
         return formattedResult;
         } catch (error) {
-          // Emit tool call error event
-          dataStream.writeData({
-            type: 'tool-call-end',
-            toolName: 'search_specific_documents',
-            success: false,
-            timestamp: Date.now()
+          // Emit specific document search error event
+          dataStream.write({
+            type: 'data-error',
+            data: 'Specific document search failed - please try again',
+            transient: true,
           });
           throw error;
         }
       },
-    },
+    }),
   };
 }
 

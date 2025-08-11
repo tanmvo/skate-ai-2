@@ -1,139 +1,80 @@
 import { render, screen } from '@testing-library/react';
 import { ProgressiveMessage } from '@/components/chat/ProgressiveMessage';
-import { Message } from 'ai/react';
-import { ToolCallEvent } from '@/lib/types/chat-phases';
-
-const mockMessage: Message = {
-  id: 'test-message-1',
-  role: 'assistant',
-  content: 'Based on my search of the documents, I found several key themes...',
-  createdAt: new Date('2024-01-01T12:00:00Z'),
-};
-
-const mockToolCallEvents: ToolCallEvent[] = [
-  {
-    type: 'tool-call-start',
-    toolName: 'search_all_documents',
-    parameters: { query: 'key themes' },
-    timestamp: Date.now() - 2000,
-  },
-  {
-    type: 'tool-call-end',
-    toolName: 'search_all_documents',
-    success: true,
-    timestamp: Date.now() - 1000,
-  },
-];
-
-const mockDataStream = [
-  {
-    type: 'tool-call-start',
-    toolName: 'search_all_documents',
-    parameters: { query: 'key themes' },
-    timestamp: Date.now() - 2000,
-  },
-  {
-    type: 'tool-call-end',
-    toolName: 'search_all_documents',
-    success: true,
-    timestamp: Date.now() - 1000,
-  },
-  {
-    type: 'citations',
-    citations: [],
-  },
-];
+import { Message } from '@ai-sdk/react';
 
 const defaultProps = {
-  message: mockMessage,
-  dataStream: mockDataStream,
-  citations: [],
-  persistenceError: false,
   formatTimestamp: (date: Date) => date.toLocaleTimeString(),
 };
 
 describe('ProgressiveMessage', () => {
-  it('should render thinking bubble when tool calls exist', () => {
-    render(<ProgressiveMessage {...defaultProps} />);
-    
-    // Should show thinking bubble
-    expect(screen.getByText('Analysis complete')).toBeInTheDocument();
+  it('should render assistant message content with markdown', () => {
+    const message: Message = {
+      id: 'test-message-1',
+      role: 'assistant',
+      content: 'Based on my search of the documents, I found several key themes...',
+      createdAt: new Date('2024-01-01T12:00:00Z'),
+    };
+
+    render(<ProgressiveMessage {...defaultProps} message={message} />);
     
     // Should show message content
-    expect(screen.getByText(mockMessage.content)).toBeInTheDocument();
+    expect(screen.getByText(message.content)).toBeInTheDocument();
+    
+    // Should show bot icon
+    expect(screen.getByRole('button')).toBeInTheDocument(); // Copy button
   });
 
-  it('should not render thinking bubble for user messages', () => {
-    const userMessage: Message = {
+  it('should render user message content with markdown', () => {
+    const message: Message = {
       id: 'user-message-1',
       role: 'user',
       content: 'What are the main themes in these documents?',
       createdAt: new Date('2024-01-01T12:00:00Z'),
     };
 
-    render(<ProgressiveMessage {...defaultProps} message={userMessage} />);
+    render(<ProgressiveMessage {...defaultProps} message={message} />);
     
     // Should show user message content
-    expect(screen.getByText(userMessage.content)).toBeInTheDocument();
-    
-    // User messages should never show thinking bubbles
-    expect(screen.queryByText('Analysis complete')).not.toBeInTheDocument();
+    expect(screen.getByText(message.content)).toBeInTheDocument();
   });
 
-  it('should show active thinking state when tool calls are in progress', () => {
-    const activeDataStream = [
-      {
-        type: 'tool-call-start',
-        toolName: 'search_all_documents',
-        parameters: { query: 'key themes' },
-        timestamp: Date.now() - 1000,
-      },
-      // No end event, so tool is still active
-    ];
+  it('should render markdown formatted content correctly', () => {
+    const message: Message = {
+      id: 'test-markdown',
+      role: 'assistant',
+      content: '# Key Findings\n\n- **Point 1**: Important discovery\n- **Point 2**: Another insight\n\nSee the `code example` for details.',
+      createdAt: new Date('2024-01-01T12:00:00Z'),
+    };
 
-    render(
-      <ProgressiveMessage 
-        {...defaultProps} 
-        dataStream={activeDataStream}
-      />
-    );
+    render(<ProgressiveMessage {...defaultProps} message={message} />);
     
-    // Should show active thinking state
-    expect(screen.getByText('Searching all documents...')).toBeInTheDocument();
-  });
-
-  it('should handle citations correctly', () => {
-    const citations = [
-      {
-        documentId: 'doc-1',
-        documentName: 'test.pdf',
-        chunkId: 'chunk-1',
-        content: 'Sample citation content',
-        similarity: 0.85,
-        chunkIndex: 0,
-      },
-    ];
-
-    render(
-      <ProgressiveMessage 
-        {...defaultProps} 
-        citations={citations}
-      />
-    );
+    // Should render markdown headers
+    expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Key Findings');
     
-    // Should show message with citations
-    expect(screen.getByText(mockMessage.content)).toBeInTheDocument();
+    // Should render markdown list
+    expect(screen.getByText('Point 1')).toBeInTheDocument();
+    expect(screen.getByText('Point 2')).toBeInTheDocument();
     
-    // Citation badge should be rendered
-    expect(screen.getByText('[1]')).toBeInTheDocument(); // Citation number
+    // Should render inline code
+    const codeElement = screen.getByText('code example');
+    expect(codeElement).toBeInTheDocument();
+    expect(codeElement.tagName).toBe('CODE');
   });
 
   it('should handle persistence errors correctly', () => {
+    const message: Message = {
+      id: 'test-message-1',
+      role: 'assistant',
+      content: 'Test content',
+      createdAt: new Date('2024-01-01T12:00:00Z'),
+    };
+
     const mockRetry = vi.fn();
 
     render(
       <ProgressiveMessage 
-        {...defaultProps} 
+        {...defaultProps}
+        message={message}
         persistenceError={true}
         onRetryPersistence={mockRetry}
       />
@@ -145,11 +86,19 @@ describe('ProgressiveMessage', () => {
   });
 
   it('should call copy function when copy button is clicked', () => {
+    const message: Message = {
+      id: 'test-message-1',
+      role: 'assistant',
+      content: 'Test content',
+      createdAt: new Date('2024-01-01T12:00:00Z'),
+    };
+
     const mockCopy = vi.fn();
 
     render(
       <ProgressiveMessage 
-        {...defaultProps} 
+        {...defaultProps}
+        message={message}
         onCopy={mockCopy}
       />
     );
@@ -164,16 +113,47 @@ describe('ProgressiveMessage', () => {
   });
 
   it('should format timestamps correctly', () => {
+    const message: Message = {
+      id: 'test-message-1',
+      role: 'assistant',
+      content: 'Test content',
+      createdAt: new Date('2024-01-01T12:00:00Z'),
+    };
+
     const customFormatTimestamp = (date: Date) => `Custom: ${date.getHours()}:${date.getMinutes()}`;
 
     render(
       <ProgressiveMessage 
-        {...defaultProps} 
+        {...defaultProps}
+        message={message}
         formatTimestamp={customFormatTimestamp}
       />
     );
     
     // Check that custom timestamp function is called and rendered
     expect(screen.getByText(/Custom: \d+:\d+/)).toBeInTheDocument();
+  });
+
+  it('should render AI SDK v4 message parts correctly', () => {
+    const messageWithParts = {
+      id: 'test-parts',
+      role: 'assistant',
+      createdAt: new Date('2024-01-01T12:00:00Z'),
+      parts: [
+        {
+          type: 'text',
+          text: '## Analysis Results\n\nI found the following insights:\n\n- Key theme 1\n- Key theme 2'
+        }
+      ]
+    } as any;
+
+    render(<ProgressiveMessage {...defaultProps} message={messageWithParts} />);
+    
+    // Should render markdown headers from parts
+    expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Analysis Results');
+    
+    // Should render list items
+    expect(screen.getByText('Key theme 1')).toBeInTheDocument();
+    expect(screen.getByText('Key theme 2')).toBeInTheDocument();
   });
 });

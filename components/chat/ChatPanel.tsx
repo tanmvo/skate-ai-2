@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useChat } from "ai/react";
+import { useChat } from "@ai-sdk/react";
+import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Bot, AlertCircle, RefreshCw } from "lucide-react";
@@ -20,6 +21,8 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [persistenceErrors, setPersistenceErrors] = useState<Set<string>>(new Set());
   const [streamError, setStreamError] = useState<string | null>(null);
+  // Manual state management for v5 compatibility
+  const [input, setInput] = useState('');
 
   const saveMessageWithRetry = useCallback(async (
     role: 'USER' | 'ASSISTANT', 
@@ -53,90 +56,94 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
 
   const {
     messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    error,
-    reload,
+    // setMessages, // Not needed for current implementation
+    sendMessage,
+    status,
+    // stop, // Not needed for current implementation  
+    regenerate,
   } = useChat({
-    api: '/api/chat',
-    body: {
-      studyId,
+    id: studyId,
+    experimental_throttle: 100, // 60fps throttling
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+      fetch: async (url: RequestInfo | URL, options?: RequestInit) => {
+        try {
+          const response = await fetch(url, {
+            ...options,
+            headers: {
+              'Content-Type': 'application/json',
+              ...options?.headers,
+            },
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          return response;
+        } catch (error) {
+          console.error('Transport error:', error);
+          throw error;
+        }
+      },
+      prepareSendMessagesRequest({ messages, body }) {
+        return {
+          body: {
+            id: studyId, // Use our studyId for the request
+            message: messages.at(-1), // Send last message as expected by API
+            ...body,
+          },
+        };
+      },
+    }),
+    onFinish: async () => {
+      try {
+        // Save the assistant's message
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage && lastMessage.role === 'assistant') {
+          // Extract content from parts structure
+          const content = lastMessage.parts
+            ?.filter(part => part.type === 'text')
+            .map(part => part.text)
+            .join('') || '';
+            
+          await saveMessageWithRetry('ASSISTANT', content);
+          
+          setPersistenceErrors(prev => {
+            const next = new Set(prev);
+            next.delete(lastMessage.id);
+            return next;
+          });
+        }
+      } catch (err) {
+        console.error('Failed to save assistant message:', err);
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage) {
+          setPersistenceErrors(prev => new Set(prev).add(lastMessage.id));
+        }
+        toast.error('Failed to save message. Your conversation may not be fully preserved.');
+      }
     },
-    // Removed onToolCall since we're using search-only approach
     onError: (error) => {
       console.error('Chat error:', error);
       
-      // Parse error response for better error handling
-      let errorMessage = 'Failed to send message. Please try again.';
-      let isRetryable = true;
+      const errorMessage = 'Failed to send message. Please try again.';
       
-      try {
-        const errorData = JSON.parse(error.message);
-        if (errorData.error) {
-          errorMessage = errorData.error;
-          isRetryable = errorData.retryable !== false;
-        }
-      } catch {
-        // Fallback to original error message
-        errorMessage = error.message || errorMessage;
-      }
-      
-      setStreamError(errorMessage);
-      
-      if (errorMessage.includes('rate limit')) {
+      if (error.message?.includes('rate limit')) {
         toast.error('Too many requests. Please wait a moment before trying again.');
-      } else if (errorMessage.includes('service temporarily unavailable')) {
+      } else if (error.message?.includes('service temporarily unavailable')) {
         toast.error('AI service is temporarily unavailable. Please try again later.');
-      } else if (isRetryable) {
+      } else {
+        setStreamError(errorMessage);
         toast.error(errorMessage, {
           action: {
             label: "Retry",
             onClick: () => {
               setStreamError(null);
-              reload();
+              regenerate();
             },
           },
         });
-      } else {
-        toast.error(errorMessage);
-      }
-    },
-    onFinish: async (message) => {
-      try {
-        // Simplified: Just save the message content since we're using search-only approach
-        await saveMessageWithRetry('ASSISTANT', message.content);
-        
-        // Remove any persistence errors for this message
-        setPersistenceErrors(prev => {
-          const next = new Set(prev);
-          next.delete(message.id);
-          return next;
-        });
-      } catch (err) {
-        console.error('Failed to save assistant message:', err);
-        setPersistenceErrors(prev => new Set(prev).add(message.id));
-        toast.error('Failed to save message. Your conversation may not be fully preserved.');
-      }
-    },
-    onResponse: async () => {
-      // Save the user's message to the database when we get a response
-      const lastUserMessage = messages[messages.length - 1];
-      if (lastUserMessage && lastUserMessage.role === 'user') {
-        try {
-          await saveMessageWithRetry('USER', lastUserMessage.content);
-          
-          // Remove any persistence errors for this message
-          setPersistenceErrors(prev => {
-            const next = new Set(prev);
-            next.delete(lastUserMessage.id);
-            return next;
-          });
-        } catch (err) {
-          console.error('Failed to save user message:', err);
-          setPersistenceErrors(prev => new Set(prev).add(lastUserMessage.id));
-        }
       }
     },
   });
@@ -149,25 +156,38 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     scrollToBottom();
   }, [messages]);
 
+  const handleSubmit = useCallback((event: React.FormEvent) => {
+    event.preventDefault();
+    
+    if (status === 'streaming' || !input.trim()) return;
+    
+    // Save user message to database before sending
+    const userMessage = input.trim();
+    saveMessageWithRetry('USER', userMessage).catch(err => {
+      console.error('Failed to save user message:', err);
+    });
+    
+    // Send message using v5 API
+    sendMessage({
+      role: 'user',
+      parts: [{ type: 'text', text: userMessage }],
+    });
+    
+    setInput('');
+  }, [input, sendMessage, status, saveMessageWithRetry]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInput(e.target.value);
+  }, []);
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      // Get the form and trigger submit
-      const form = e.currentTarget.closest('form') as HTMLFormElement;
-      if (form) {
-        // Use dispatchEvent as fallback for environments that don't support requestSubmit
-        if (form.requestSubmit) {
-          form.requestSubmit();
-        } else {
-          form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
-        }
-      }
+      handleSubmit(e as React.FormEvent);
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-  };
+  // Removed copyToClipboard - now handled inline
 
   const retryMessagePersistence = async (messageId: string, role: 'USER' | 'ASSISTANT', content: string) => {
     try {
@@ -232,12 +252,22 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
                 message={message}
                 persistenceError={persistenceErrors.has(message.id)}
                 onCitationClick={handleCitationClick}
-                onRetryPersistence={() => retryMessagePersistence(
-                  message.id, 
-                  message.role.toUpperCase() as 'USER' | 'ASSISTANT', 
-                  message.content
-                )}
-                onCopy={copyToClipboard}
+                onRetryPersistence={() => {
+                  // Extract content from parts structure for v5
+                  const content = message.parts
+                    ?.filter(part => part.type === 'text')
+                    .map(part => part.text)
+                    .join('') || '';
+                  retryMessagePersistence(
+                    message.id, 
+                    message.role.toUpperCase() as 'USER' | 'ASSISTANT', 
+                    content
+                  );
+                }}
+                onCopy={(text: string) => {
+                  navigator.clipboard.writeText(text);
+                  toast.success('Copied to clipboard');
+                }}
                 formatTimestamp={formatTimestamp}
               />
             );
@@ -256,11 +286,11 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
             placeholder="Ask a question about your documents..."
             className="resize-none"
             rows={3}
-            disabled={isLoading}
+            disabled={status === 'streaming'}
           />
           <Button
             type="submit"
-            disabled={!input.trim() || isLoading}
+            disabled={!input.trim() || status === 'streaming'}
             size="sm"
             className="self-end"
           >
@@ -270,10 +300,10 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
         <p className="text-xs text-muted-foreground mt-2">
           Press Enter to send, Shift+Enter for new line
         </p>
-        {(error || streamError) && (
+        {(streamError) && (
           <div className="flex items-center gap-2 mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
             <AlertCircle className="h-3 w-3 flex-shrink-0" />
-            <span>{streamError || error?.message}</span>
+            <span>{streamError}</span>
             {streamError && (
               <Button
                 size="sm"
@@ -281,7 +311,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
                 className="h-auto p-1 ml-auto text-destructive hover:text-destructive"
                 onClick={() => {
                   setStreamError(null);
-                  reload();
+                  regenerate();
                 }}
               >
                 <RefreshCw className="h-3 w-3" />

@@ -4,7 +4,7 @@ import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { ChatPanel } from '../../../components/chat/ChatPanel';
 import { renderWithProviders, mockMessages } from '../../test-utils';
 
-// Mock useChat from ai/react
+// Mock useChat from @ai-sdk/react
 const mockUseChat = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   messages: [] as any[], 
@@ -16,7 +16,7 @@ const mockUseChat = {
   error: null as any, 
 };
 
-vi.mock('ai/react', () => ({
+vi.mock('@ai-sdk/react', () => ({
   useChat: () => mockUseChat,
 }));
 

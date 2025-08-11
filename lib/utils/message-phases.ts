@@ -1,4 +1,4 @@
-import { Message } from 'ai/react';
+import { UIMessage } from '@ai-sdk/react';
 import { MessagePhase, ToolCallEvent, MessageWithPhases } from '@/lib/types/chat-phases';
 import { generateThinkingText } from '@/lib/hooks/useToolCallData';
 
@@ -6,7 +6,7 @@ import { generateThinkingText } from '@/lib/hooks/useToolCallData';
  * Classify a message into thinking and results phases based on tool call events
  */
 export function classifyMessagePhases(
-  message: Message,
+  message: UIMessage,
   toolCallEvents: ToolCallEvent[]
 ): MessagePhase[] {
   const phases: MessagePhase[] = [];
@@ -26,8 +26,8 @@ export function classifyMessagePhases(
   // Always add results phase with the final message content
   phases.push({
     type: 'results',
-    content: message.content,
-    timestamp: message.createdAt ? message.createdAt.getTime() : Date.now(),
+    content: message.parts?.filter(part => part.type === 'text').map(part => part.text).join('') || '',
+    timestamp: Date.now(), // v5 doesn't have createdAt on UIMessage
   });
   
   return phases;
@@ -37,7 +37,7 @@ export function classifyMessagePhases(
  * Create a MessageWithPhases from a regular Message and tool call events
  */
 export function createMessageWithPhases(
-  message: Message,
+  message: UIMessage,
   toolCallEvents: ToolCallEvent[]
 ): MessageWithPhases {
   const phases = classifyMessagePhases(message, toolCallEvents);
@@ -45,8 +45,8 @@ export function createMessageWithPhases(
   return {
     id: message.id,
     role: message.role as 'user' | 'assistant',
-    content: message.content,
-    createdAt: message.createdAt,
+    content: message.parts?.filter(part => part.type === 'text').map(part => part.text).join('') || '',
+    createdAt: new Date(), // v5 doesn't have createdAt on UIMessage
     phases,
     toolCalls: toolCallEvents,
   };
@@ -56,7 +56,7 @@ export function createMessageWithPhases(
  * Check if a message should show thinking phases
  */
 export function shouldShowThinkingPhase(
-  message: Message,
+  message: UIMessage,
   toolCallEvents: ToolCallEvent[]
 ): boolean {
   return (

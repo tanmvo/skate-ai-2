@@ -1,4 +1,4 @@
-import { streamText } from 'ai';
+import { streamText, createUIMessageStream, smoothStream, convertToModelMessages, JsonToSseTransformStream, stepCountIs } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { NextRequest } from 'next/server';
 import { validateStudyOwnership, getCurrentUserId } from '@/lib/auth';
@@ -21,12 +21,12 @@ export async function POST(req: NextRequest) {
       throw new ServiceUnavailableError('AI service');
     }
 
-    const { messages, studyId } = await req.json();
+    const { message, id: studyId } = await req.json();
 
     // Validate required fields
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+    if (!message) {
       return Response.json(
-        { error: 'Messages array is required' },
+        { error: 'Message is required' },
         { status: 400 }
       );
     }
@@ -56,11 +56,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get the latest user message for context retrieval
-    const latestMessage = messages[messages.length - 1];
-    if (!latestMessage || latestMessage.role !== 'user') {
+    // Validate that the message is from user
+    if (message.role !== 'user') {
       return Response.json(
-        { error: 'Last message must be from user' },
+        { error: 'Message must be from user' },
         { status: 400 }
       );
     }
@@ -156,6 +155,32 @@ You MUST:
 - **Use researcher-appropriate language** - academic but accessible
 - **Structure responses clearly** with main insights followed by supporting details
 - **Ask clarifying questions** when the research question needs refinement
+
+### Markdown Formatting Requirements
+**Critical**: All responses are rendered with markdown formatting. Follow these strict formatting guidelines:
+
+#### Ordered Lists - MUST increment properly
+- **Correct Format**: Use proper sequential numbering (1., 2., 3., 4., 5.)
+- **Prohibited**: Never repeat "1." for multiple main sections
+
+**WRONG example - Do NOT do this:**
+1. Research Synthesis Challenges (bullet points here)
+1. Time and Resource Constraints (bullet points here)
+1. Knowledge Management Issues (bullet points here)
+
+**CORRECT example - Always do this:**
+1. Research Synthesis Challenges (bullet points here)
+2. Time and Resource Constraints (bullet points here)
+3. Knowledge Management Issues (bullet points here)
+
+#### Nested Lists Structure
+- Use bullet points (-) or dashes for sub-items under numbered sections
+- Maintain consistent indentation for sub-items
+- Keep numbered items as main section headers only
+
+#### Headers and Emphasis
+- Use **bold** for section titles and key concepts
+- Use proper header hierarchy for major sections
 </constraints>
 
 <reasoning_framework>
@@ -231,49 +256,65 @@ Break down the question into 3-4 search aspects, plan systematic approach
 - If tools fail, gracefully explain limitations and suggest manual alternatives
 </tools>
 
-Never just return raw search results - always synthesize into meaningful insights with proper analysis and evidence.`;
+Never just return raw search results - always synthesize into meaningful insights with proper analysis and evidence.
 
-    // Generate AI response with function calling enabled
+CRITICAL: After executing any tools, you MUST continue with your analysis and provide a complete response. Do not stop after tool execution - always provide synthesis, insights, and conclusions based on the search results.`;
+
+    // Generate AI response using v5 createUIMessageStream pattern
     try {
-      // Initialize search tools
-      let searchTools = {};
-      
-      try {
-        // Note: Search tools still need dataStream parameter for now
-        // We'll create a dummy dataStream to avoid breaking them during this migration
-        const dummyDataStream = {
-          writeData: () => {} // No-op function
-        };
-        searchTools = createSearchTools(studyId, dummyDataStream);
-      } catch (error) {
-        console.error('Failed to create search tools:', error);
-      }
-      
-      // Using search-only approach - no synthesis tools needed
-      const allTools = { ...searchTools };
-      
-      const result = streamText({
-        model: anthropic('claude-3-5-sonnet-20241022'),
-        system: systemPrompt,
-        messages: messages.map((msg: { role: string; content: string }) => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        })),
-        tools: allTools,
-        maxSteps: 5, // Allow multiple tool calls for find_document_ids → search_specific_documents workflow
-        temperature: 0.0, // More deterministic to follow instructions exactly
-        maxTokens: 4000,
-        toolChoice: 'auto', // Let AI decide when to use tools
-        onStepFinish: ({ toolCalls }) => {
-          // Log tool usage for monitoring
-          if (toolCalls && toolCalls.length > 0) {
-            console.log(`Tools called: ${toolCalls.map((tc: { toolName: string }) => tc.toolName).join(', ')}`);
+      const stream = createUIMessageStream({
+        execute: ({ writer: dataStream }) => {
+          // Initialize search tools with dataStream
+          let searchTools = {};
+          
+          try {
+            searchTools = createSearchTools(studyId, dataStream);
+          } catch (error) {
+            console.error('Failed to create search tools:', error);
           }
+          
+          // Create the AI response stream using working v5 pattern
+          console.log('🚀 Starting streamText with tools:', Object.keys(searchTools));
+          const result = streamText({
+            model: anthropic('claude-3-5-sonnet-20241022'),
+            system: systemPrompt,
+            messages: convertToModelMessages([message]), // Convert UI message to model messages
+            
+            // CRITICAL: Use stopWhen instead of deprecated maxSteps
+            stopWhen: stepCountIs(5), // Allows up to 5 tool execution steps
+            
+            // Tool activation control
+            experimental_activeTools: Object.keys(searchTools),
+            
+            tools: searchTools,
+            temperature: 0.0, // More deterministic to follow instructions exactly
+            toolChoice: 'auto', // Let AI decide when to use tools
+            experimental_transform: smoothStream({ 
+              chunking: 'word' // Word-level chunking for smooth rendering
+            }),
+          });
+          
+          // CRITICAL: Must call consumeStream() for proper streaming
+          result.consumeStream();
+          
+          // CRITICAL: Merge AI stream with UI message stream
+          dataStream.merge(result.toUIMessageStream({
+            sendReasoning: true, // Include reasoning steps
+          }));
+        },
+        generateId: () => `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`, // Simple ID generator
+        onFinish: async ({ messages }) => {
+          // Handle completion - could save to database here if needed
+          console.log('🏁 Stream finished with messages:', messages.length);
+          console.log('📋 Final messages:', messages.map(m => ({ role: m.role, contentLength: m.parts?.length || 0 })));
+        },
+        onError: () => {
+          return 'An error occurred while processing your request. Please try again.';
         },
       });
 
-      // Return standard AI SDK response (no manual stream merging needed)
-      return result.toDataStreamResponse();
+      // Return v5 streaming response
+      return new Response(stream.pipeThrough(new JsonToSseTransformStream()));
       
     } catch (streamError) {
       console.error('Streaming generation error:', streamError);

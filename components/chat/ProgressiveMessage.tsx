@@ -1,13 +1,14 @@
-import { Message } from "ai/react";
+import { UIMessage } from "@ai-sdk/react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Bot, User, AlertCircle, RefreshCw, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Citation } from "@/lib/types/citations";
+import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 // Simplified for search-only approach - removed synthesis dependencies
 
 interface ProgressiveMessageProps {
-  message: Message;
+  message: UIMessage;
   persistenceError?: boolean;
   onCitationClick?: (citation: Citation) => void;
   onRetryPersistence?: () => void;
@@ -55,17 +56,13 @@ export function ProgressiveMessage({
                   <div className="animate-fade-in delay-200">
                     <Card className="bg-muted">
                       <CardContent className="p-3">
-                        <div className="prose prose-sm max-w-none dark:prose-invert">
-                          <div className="whitespace-pre-wrap text-sm">
-                            {part.text}
-                          </div>
-                        </div>
+                        <MarkdownRenderer content={part.text} />
                       </CardContent>
                     </Card>
                   </div>
                   {/* Message Metadata */}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{formatTimestamp(message.createdAt || new Date())}</span>
+                    <span>{formatTimestamp(new Date())}</span>
                     {persistenceError && (
                       <>
                         <AlertCircle className="h-3 w-3 text-destructive" />
@@ -144,65 +141,28 @@ export function ProgressiveMessage({
       </div>
 
       <div className="max-w-[80%] space-y-3 order-1">
-        {/* Simplified message rendering */}
-        {message.content && (
+        {/* Simplified message rendering - extract content from parts */}
+        {message.parts && message.parts.some(part => part.type === 'text' && part.text) && (
           <div className="animate-fade-in delay-200">
             <Card className="bg-muted">
               <CardContent className="p-3">
-                <div className="prose prose-sm max-w-none dark:prose-invert">
-                  <div className="whitespace-pre-wrap text-sm">
-                    {message.content}
-                  </div>
-                </div>
+                <MarkdownRenderer content={
+                  message.parts
+                    ?.filter(part => part.type === 'text')
+                    .map(part => part.text)
+                    .join('') || ''
+                } />
               </CardContent>
             </Card>
           </div>
         )}
         
-        {/* Tool Invocations - Following Vercel AI SDK example pattern */}
-        {message.role === 'assistant' && message.toolInvocations && (
-          <div className="space-y-2 mt-3">
-            {message.toolInvocations.map((toolInvocation) => {
-              const { toolName, toolCallId, state } = toolInvocation;
-              
-              // Only show search tools
-              if (!['search_all_documents', 'search_specific_documents', 'find_document_ids'].includes(toolName)) {
-                return null;
-              }
-              
-              // Extract search query and result count
-              const searchQuery = toolInvocation.args?.query as string || '';
-              const resultText = (toolInvocation.state === 'result' && 'result' in toolInvocation && typeof toolInvocation.result === 'string') 
-                ? toolInvocation.result 
-                : '';
-              const resultCount = resultText.match(/Found (\d+) relevant passages?/i)?.[1];
-              
-              return (
-                <div key={toolCallId} className="flex items-center gap-2 text-sm text-muted-foreground py-1 px-3 bg-muted/30 rounded-lg">
-                  {state === 'call' || state === 'partial-call' ? (
-                    <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
-                      <span>Searching for: &ldquo;{searchQuery}&rdquo;</span>
-                    </>
-                  ) : state === 'result' ? (
-                    <>
-                      <div className="w-3 h-3 rounded-full bg-green-600 flex items-center justify-center">
-                        <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                      </div>
-                      <span>
-                        {resultCount ? `Found ${resultCount} relevant passage${resultCount === '1' ? '' : 's'}` : 'Search completed'}
-                      </span>
-                    </>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        )}
+        {/* TODO: Tool Invocations - will be implemented in Phase 1F */}
+        {/* Tool invocation display needs to be updated for v5 part structure */}
 
         {/* Message Metadata */}
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatTimestamp(message.createdAt || new Date())}</span>
+          <span>{formatTimestamp(new Date())}</span>
           {persistenceError && (
             <>
               <AlertCircle className="h-3 w-3 text-destructive" />
@@ -221,7 +181,12 @@ export function ProgressiveMessage({
             size="sm"
             variant="ghost"
             className="h-auto p-1"
-            onClick={() => onCopy?.(message.content)}
+            onClick={() => onCopy?.(
+              message.parts
+                ?.filter(part => part.type === 'text')
+                .map(part => part.text)
+                .join('') || ''
+            )}
           >
             <Copy className="h-3 w-3" />
           </Button>
@@ -237,7 +202,7 @@ function UserMessage({
   onRetryPersistence,
   formatTimestamp,
 }: {
-  message: Message;
+  message: UIMessage;
   persistenceError: boolean;
   onRetryPersistence?: () => void;
   formatTimestamp: (date: Date) => string;
@@ -247,16 +212,17 @@ function UserMessage({
       <div className="max-w-[80%] space-y-2 order-2">
         <Card className="bg-primary text-primary-foreground">
           <CardContent className="p-3">
-            <div className="prose prose-sm max-w-none dark:prose-invert">
-              <div className="whitespace-pre-wrap text-sm">
-                {message.content}
-              </div>
-            </div>
+            <MarkdownRenderer content={
+              message.parts
+                ?.filter(part => part.type === 'text')
+                .map(part => part.text)
+                .join('') || ''
+            } />
           </CardContent>
         </Card>
 
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatTimestamp(message.createdAt || new Date())}</span>
+          <span>{formatTimestamp(new Date())}</span>
           {persistenceError && (
             <>
               <AlertCircle className="h-3 w-3 text-destructive" />

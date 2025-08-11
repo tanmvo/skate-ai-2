@@ -31,7 +31,7 @@ export interface ToolCallData {
 
 
 export interface ChatStreamData {
-  type: 'citations' | 'tool-call-start' | 'tool-call-end' | 'study-context-error' | 'stream-error' | 'execution-error' | 'fallback-response' | 'tool-calls-complete' | 'synthesis-progress' | 'synthesis-complete';
+  type: 'citations' | 'tool-call-start' | 'tool-call-end' | 'study-context-error' | 'stream-error' | 'execution-error' | 'fallback-response' | 'tool-calls-complete' | 'synthesis-progress' | 'synthesis-complete' | 'data-thinking' | 'data-complete' | 'data-error' | 'data-progress';
   citations?: unknown[];
   toolName?: string;
   parameters?: Record<string, unknown>;
@@ -55,6 +55,8 @@ export interface ChatStreamData {
   };
   synthesis?: unknown;
   synthesisId?: string;
+  // Add field for v5 data stream events
+  data?: string | Record<string, unknown>;
 }
 
 export interface ThinkingContent {
