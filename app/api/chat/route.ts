@@ -264,17 +264,10 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
     try {
       const stream = createUIMessageStream({
         execute: ({ writer: dataStream }) => {
-          // Initialize search tools with dataStream
-          let searchTools = {};
-          
-          try {
-            searchTools = createSearchTools(studyId, dataStream);
-          } catch (error) {
-            console.error('Failed to create search tools:', error);
-          }
+          // Initialize search tools
+          const searchTools = createSearchTools(studyId);
           
           // Create the AI response stream using working v5 pattern
-          console.log('🚀 Starting streamText with tools:', Object.keys(searchTools));
           const result = streamText({
             model: anthropic('claude-3-5-sonnet-20241022'),
             system: systemPrompt,
@@ -284,7 +277,7 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
             stopWhen: stepCountIs(5), // Allows up to 5 tool execution steps
             
             // Tool activation control
-            experimental_activeTools: Object.keys(searchTools),
+            experimental_activeTools: Object.keys(searchTools) as ('search_all_documents' | 'find_document_ids' | 'search_specific_documents')[],
             
             tools: searchTools,
             temperature: 0.0, // More deterministic to follow instructions exactly
@@ -305,8 +298,6 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
         generateId: () => `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`, // Simple ID generator
         onFinish: async ({ messages }) => {
           // Handle completion - could save to database here if needed
-          console.log('🏁 Stream finished with messages:', messages.length);
-          console.log('📋 Final messages:', messages.map(m => ({ role: m.role, contentLength: m.parts?.length || 0 })));
         },
         onError: () => {
           return 'An error occurred while processing your request. Please try again.';

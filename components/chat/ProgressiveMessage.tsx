@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Citation } from "@/lib/types/citations";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
+import { useToolProgress } from "@/lib/hooks/useToolProgress";
 // Simplified for search-only approach - removed synthesis dependencies
 
 interface ProgressiveMessageProps {
@@ -23,7 +24,8 @@ export function ProgressiveMessage({
   onCopy,
   formatTimestamp,
 }: ProgressiveMessageProps) {
-  // Simplified for search-only approach - removed synthesis logic
+  // Extract tool progress data using v5 compatible hook
+  const toolProgress = useToolProgress(message);
 
   if (message.role === "user") {
     return (
@@ -36,10 +38,8 @@ export function ProgressiveMessage({
     );
   }
 
-  // Check if the message has parts (AI SDK v4 pattern)
+  // Check if the message has parts (AI SDK v5 pattern)
   const messageParts = (message as unknown as { parts?: Array<{ type: string; text?: string; toolInvocation?: unknown }> }).parts;
-  
-  console.log('Message parts for', message.id, ':', messageParts);
 
   if (messageParts && Array.isArray(messageParts)) {
     // Render using message parts (AI SDK v4 pattern)
@@ -89,36 +89,54 @@ export function ProgressiveMessage({
                 </div>
               </div>
             );
-          } else if (part.type === 'tool-invocation') {
-            const toolInvocation = part.toolInvocation as unknown as { toolName: string; state: string; args?: { query: string }; result?: string };
-            if (!toolInvocation || !['search_all_documents', 'search_specific_documents', 'find_document_ids'].includes(toolInvocation.toolName)) {
+          } else if (part.type && part.type.startsWith('tool-')) {
+            // Extract tool name from type (e.g., "tool-search_all_documents" -> "search_all_documents")
+            const toolName = part.type.substring(5);
+            
+            if (!['search_all_documents', 'search_specific_documents', 'find_document_ids'].includes(toolName)) {
               return null;
             }
             
-            // Extract search query and result count
-            const searchQuery = toolInvocation.args?.query as string || '';
-            const resultText = (toolInvocation.state === 'result' && typeof toolInvocation.result === 'string') 
-              ? toolInvocation.result 
-              : '';
-            const resultCount = resultText.match(/Found (\d+) relevant passages?/i)?.[1];
+            // Find matching tool from toolProgress data
+            const matchingTool = toolProgress.tools.find(tool => tool.toolName === toolName);
+            
+            if (!matchingTool) {
+              return null;
+            }
+            
+            // Extract data from the matching tool
+            const searchQuery = matchingTool.query || '';
+            const resultCount = matchingTool.resultCount;
+            const isActive = matchingTool.isActive;
             
             return (
               <div key={`${message.id}-tool-${index}`} className="flex gap-3 justify-start">
                 <div className="w-8 h-8 flex-shrink-0" />
                 <div className="max-w-[70%]">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground py-1 px-3 bg-muted/30 rounded-lg">
-                    {toolInvocation.state === 'call' || toolInvocation.state === 'partial-call' ? (
+                    {isActive ? (
                       <>
                         <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
-                        <span>Searching for: &ldquo;{searchQuery}&rdquo;</span>
+                        <span>
+                          {toolName === 'find_document_ids' && 'Looking up documents'}
+                          {toolName === 'search_specific_documents' && 'Searching specific documents'}
+                          {toolName === 'search_all_documents' && 'Searching all documents'}
+                          {searchQuery && `: "${searchQuery}"`}
+                        </span>
                       </>
-                    ) : toolInvocation.state === 'result' ? (
+                    ) : matchingTool.state === 'output-available' ? (
                       <>
                         <div className="w-3 h-3 rounded-full bg-green-600 flex items-center justify-center">
                           <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
                         </div>
                         <span>
-                          {resultCount ? `Found ${resultCount} relevant passage${resultCount === '1' ? '' : 's'}` : 'Search completed'}
+                          {toolName === 'find_document_ids' && 'Found document IDs'}
+                          {toolName === 'search_specific_documents' && (
+                            resultCount ? `Found ${resultCount} passage${resultCount === 1 ? '' : 's'} in specific documents` : 'Searched specific documents'
+                          )}
+                          {toolName === 'search_all_documents' && (
+                            resultCount ? `Found ${resultCount} passage${resultCount === 1 ? '' : 's'} across all documents` : 'Search completed'
+                          )}
                         </span>
                       </>
                     ) : null}

@@ -31,7 +31,7 @@ export interface ToolCallData {
 
 
 export interface ChatStreamData {
-  type: 'citations' | 'tool-call-start' | 'tool-call-end' | 'study-context-error' | 'stream-error' | 'execution-error' | 'fallback-response' | 'tool-calls-complete' | 'synthesis-progress' | 'synthesis-complete' | 'data-thinking' | 'data-complete' | 'data-error' | 'data-progress';
+  type: 'citations' | 'tool-call-start' | 'tool-call-end' | 'study-context-error' | 'stream-error' | 'execution-error' | 'fallback-response' | 'tool-calls-complete' | 'synthesis-progress' | 'synthesis-complete' | 'data-thinking' | 'data-complete' | 'data-error' | 'data-progress' | 'tool-input-start' | 'tool-input-delta' | 'tool-input-available' | 'tool-output-available';
   citations?: unknown[];
   toolName?: string;
   parameters?: Record<string, unknown>;

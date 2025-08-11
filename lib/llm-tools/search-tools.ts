@@ -305,8 +305,7 @@ export const searchToolDefinitions = {
 /**
  * Create AI SDK v5 compatible tool definitions using tool() function
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createSearchTools(studyId: string, dataStream: any) {
+export function createSearchTools(studyId: string) {
   return {
     search_all_documents: tool({
       description: 'Search across all documents in the current study for relevant content',
@@ -316,41 +315,16 @@ export function createSearchTools(studyId: string, dataStream: any) {
         minSimilarity: z.number().min(0).max(1).optional().describe('Minimum similarity score for results (default: 0.1)'),
       }),
       execute: async ({ query, limit = 3, minSimilarity = 0.1 }) => {
-        // Emit search progress event using v5 custom data stream pattern
-        dataStream.write({
-          type: 'data-thinking',
-          data: `Searching all documents for: "${query}"`,
-          transient: true, // Won't be saved in message history
-        });
-
         if (!query.trim()) {
           throw new Error('Search query cannot be empty');
         }
 
         try {
-          console.log('🔍 Starting search for:', query);
           const result = await searchAllDocuments(query, studyId, { limit, minSimilarity });
-          console.log('📊 Search result:', { totalFound: result.totalFound, resultsLength: result.results.length });
-          
           const formattedResult = formatSearchToolResults(result);
-          console.log('📝 Formatted result length:', formattedResult.length);
-          
-          // Emit search completion event
-          dataStream.write({
-            type: 'data-complete',
-            data: `Found ${result.totalFound} relevant passage${result.totalFound === 1 ? '' : 's'}`,
-            transient: true,
-          });
-          
-          console.log('✅ Tool execution completed successfully');
           return formattedResult;
         } catch (error) {
-          // Emit search error event
-          dataStream.write({
-            type: 'data-error',
-            data: 'Search failed - please try again',
-            transient: true,
-          });
+          console.error('Search error:', error);
           throw error;
         }
       },
@@ -362,13 +336,6 @@ export function createSearchTools(studyId: string, dataStream: any) {
         includeAlternatives: z.boolean().optional().describe('Include similar document names if exact match fails (default: true)'),
       }),
       execute: async ({ documentNames }) => {
-        // Emit document lookup progress event
-        dataStream.write({
-          type: 'data-thinking',
-          data: `Looking up documents: ${documentNames.join(', ')}`,
-          transient: true,
-        });
-
         if (!documentNames || documentNames.length === 0) {
           throw new Error('At least one document name is required');
         }
@@ -376,22 +343,9 @@ export function createSearchTools(studyId: string, dataStream: any) {
         try {
           const result = await findDocumentIdsByNames(documentNames, studyId);
           const formattedResult = formatDocumentLookupResult(result);
-          
-          // Emit document lookup completion event
-          dataStream.write({
-            type: 'data-complete',
-            data: `Found ${result.found.length} document${result.found.length === 1 ? '' : 's'}`,
-            transient: true,
-          });
-          
           return formattedResult;
         } catch (error) {
-          // Emit document lookup error event
-          dataStream.write({
-            type: 'data-error',
-            data: 'Document lookup failed - please try again',
-            transient: true,
-          });
+          console.error('Document lookup error:', error);
           throw error;
         }
       },
@@ -405,13 +359,6 @@ export function createSearchTools(studyId: string, dataStream: any) {
         minSimilarity: z.number().min(0).max(1).optional().describe('Minimum similarity score for results (default: 0.1)'),
       }),
       execute: async ({ query, documentIds, limit = 3, minSimilarity = 0.1 }) => {
-        // Emit specific document search progress event
-        dataStream.write({
-          type: 'data-thinking',
-          data: `Searching ${documentIds.length} specific document${documentIds.length === 1 ? '' : 's'} for: "${query}"`,
-          transient: true,
-        });
-
         if (!query.trim()) {
           throw new Error('Search query cannot be empty');
         }
@@ -430,36 +377,23 @@ export function createSearchTools(studyId: string, dataStream: any) {
         try {
           const result = await searchSpecificDocuments(query, studyId, documentIds, { limit, minSimilarity });
         
-        // Get study context for enhanced error messages
-        let context: SearchContext | undefined;
-        try {
-          const studyContext = await getStudyDocumentContext(studyId);
-          context = {
-            studyDocumentCount: studyContext.totalDocuments,
-            availableDocuments: studyContext.availableNames,
-            originalQuery: query,
-          };
+          // Get study context for enhanced error messages
+          let context: SearchContext | undefined;
+          try {
+            const studyContext = await getStudyDocumentContext(studyId);
+            context = {
+              studyDocumentCount: studyContext.totalDocuments,
+              availableDocuments: studyContext.availableNames,
+              originalQuery: query,
+            };
+          } catch (error) {
+            console.warn('Failed to get study context for error formatting:', error);
+          }
+        
+          const formattedResult = formatSearchToolResults(result, context);
+          return formattedResult;
         } catch (error) {
-          console.warn('Failed to get study context for error formatting:', error);
-        }
-        
-        const formattedResult = formatSearchToolResults(result, context);
-        
-        // Emit specific document search completion event
-        dataStream.write({
-          type: 'data-complete',
-          data: `Found ${result.totalFound} relevant passage${result.totalFound === 1 ? '' : 's'} in specified documents`,
-          transient: true,
-        });
-        
-        return formattedResult;
-        } catch (error) {
-          // Emit specific document search error event
-          dataStream.write({
-            type: 'data-error',
-            data: 'Specific document search failed - please try again',
-            transient: true,
-          });
+          console.error('Specific document search error:', error);
           throw error;
         }
       },

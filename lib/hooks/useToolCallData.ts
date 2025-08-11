@@ -16,6 +16,7 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
       };
     }
 
+
     // Filter for all relevant streaming events with enhanced type safety
     const streamingEvents = dataStream
       .filter((item): item is ChatStreamData => {
@@ -34,6 +35,12 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
           const validTypes = [
             'tool-call-start',
             'tool-call-end', 
+            // AI SDK v5 native tool events
+            'tool-input-start',
+            'tool-input-delta', 
+            'tool-input-available',
+            'tool-output-available',
+            // Legacy custom events
             'data-thinking',
             'data-complete',
             'data-error',
@@ -50,26 +57,59 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
           return validTypes.includes(itemType);
         } catch (error) {
           // Gracefully handle any unexpected errors in type checking
-          console.warn('Error filtering streaming events:', error);
           return false;
         }
       })
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
 
-    // Extract tool call events for backward compatibility (v4 events + v5 data events)
+    // Extract tool call events for backward compatibility (v4 events + v5 native + v5 data events)
     const toolCallEvents = streamingEvents
       .filter((item): item is ChatStreamData => 
         item.type === 'tool-call-start' || 
         item.type === 'tool-call-end' ||
+        // AI SDK v5 native tool events
+        item.type === 'tool-input-start' ||
+        item.type === 'tool-input-available' ||
+        item.type === 'tool-output-available' ||
+        // Custom data events (for backward compatibility)
         item.type === 'data-thinking' ||
         item.type === 'data-complete' ||
         item.type === 'data-error'
       )
       .map((item): ToolCallEvent => {
-        // Safe mapping with fallback values - convert v5 data events to tool call format
+        // Safe mapping with fallback values - convert v5 events to tool call format
         try {
-          // Handle v5 data stream events
-          if (item.type === 'data-thinking') {
+          // Handle AI SDK v5 native tool events
+          if (item.type === 'tool-input-start') {
+            const toolEvent = item as unknown as { toolName?: string };
+            return {
+              type: 'tool-call-start',
+              toolName: toolEvent.toolName || 'unknown-tool',
+              parameters: {},
+              timestamp: Date.now(),
+            };
+          } else if (item.type === 'tool-input-available') {
+            const toolEvent = item as unknown as { toolName?: string; input?: Record<string, unknown> };
+            return {
+              type: 'tool-call-start', // Input available means tool is ready to execute
+              toolName: toolEvent.toolName || 'unknown-tool',
+              parameters: toolEvent.input || {},
+              timestamp: Date.now(),
+            };
+          } else if (item.type === 'tool-output-available') {
+            const toolEvent = item as unknown as { toolName?: string; output?: unknown };
+            return {
+              type: 'tool-call-end',
+              toolName: toolEvent.toolName || 'unknown-tool',  
+              parameters: {},
+              result: toolEvent.output ? JSON.stringify(toolEvent.output) : undefined,
+              timestamp: Date.now(),
+              success: true,
+            };
+          }
+          
+          // Handle v5 custom data stream events (legacy)
+          else if (item.type === 'data-thinking') {
             return {
               type: 'tool-call-start',
               toolName: 'search', // Generic tool name for v5 events
@@ -106,7 +146,6 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
             success: typeof item.success === 'boolean' ? item.success : undefined,
           };
         } catch (error) {
-          console.warn('Error mapping tool call event:', error, item);
           return {
             type: 'tool-call-end', // Safe fallback
             toolName: 'unknown',
@@ -118,6 +157,7 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
         }
       })
       .sort((a, b) => a.timestamp - b.timestamp);
+
 
     // Determine if any tools are currently active
     const toolStates = new Map<string, boolean>();
