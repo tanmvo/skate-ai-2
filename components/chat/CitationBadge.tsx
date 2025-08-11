@@ -34,7 +34,7 @@ export function CitationBadge({
           <Badge 
             variant="secondary" 
             className={cn(
-              "ml-1 text-xs cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors",
+              "ml-1 text-xs cursor-pointer bg-citation/10 text-citation hover:bg-citation/20 border-citation/20 ring-1 ring-inset ring-citation/20 transition-colors",
               className
             )}
             onClick={handleClick}
@@ -44,12 +44,12 @@ export function CitationBadge({
         </TooltipTrigger>
         <TooltipContent className="max-w-sm">
           <div className="space-y-2">
-            <p className="font-medium text-sm">{citation.documentName}</p>
-            <p className="text-xs text-muted-foreground">
+            <p className="font-medium text-sm text-document">{citation.documentName}</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
               {citation.content}
             </p>
             {citation.pageNumber && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-document/80 font-mono">
                 Page {citation.pageNumber}
               </p>
             )}

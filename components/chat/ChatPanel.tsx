@@ -5,11 +5,12 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Bot, AlertCircle, RefreshCw } from "lucide-react";
+import { AlertCircle, RefreshCw, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
 import { withRetry } from "@/lib/error-handling";
 import { Citation } from "@/lib/types/citations";
 import { ProgressiveMessage } from "./ProgressiveMessage";
+import { motion } from "framer-motion";
 
 interface ChatPanelProps {
   studyId: string;
@@ -159,7 +160,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const handleSubmit = useCallback((event: React.FormEvent) => {
     event.preventDefault();
     
-    if (status === 'streaming' || !input.trim()) return;
+    if (status !== 'ready' || !input.trim()) return;
     
     // Save user message to database before sending
     const userMessage = input.trim();
@@ -174,18 +175,25 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     });
     
     setInput('');
+    resetHeight();
   }, [input, sendMessage, status, saveMessageWithRetry]);
+
+  const resetHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = '60px';
+    }
+  }, []);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
+    // Auto-adjust height like ai-chatbot
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight + 2}px`;
+    }
   }, []);
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit(e as React.FormEvent);
-    }
-  };
 
   // Removed copyToClipboard - now handled inline
 
@@ -217,7 +225,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
+    <div className="flex flex-col min-w-0 h-dvh bg-background">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-2">
           <h2 className="font-semibold">Chat</h2>
@@ -227,22 +235,41 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4 relative">
         {messages.length === 0 ? (
-          <div className="text-center py-12">
-            <Bot className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <h3 className="font-medium mb-2">Start a conversation</h3>
-            <p className="text-sm text-muted-foreground mb-4">
-              Ask questions about your documents to discover insights
-            </p>
-            <div className="text-left max-w-md mx-auto space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">Examples:</p>
-              <div className="space-y-1 text-xs text-muted-foreground">
+          <div className="max-w-3xl mx-auto md:mt-20 px-8 size-full flex flex-col justify-center">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ delay: 0.5 }}
+              className="text-2xl font-semibold"
+            >
+              Welcome to your research assistant!
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ delay: 0.6 }}
+              className="text-2xl text-muted-foreground"
+            >
+              What would you like to explore in your documents?
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ delay: 0.7 }}
+              className="mt-8 space-y-3"
+            >
+              <p className="text-sm font-medium text-foreground">Try asking:</p>
+              <div className="space-y-2 text-sm text-muted-foreground">
                 <p>• &ldquo;What are the main themes in these interviews?&rdquo;</p>
                 <p>• &ldquo;Find quotes about user frustrations&rdquo;</p>
                 <p>• &ldquo;What patterns do you see across documents?&rdquo;</p>
               </div>
-            </div>
+            </motion.div>
           </div>
         ) : (
           messages.map((message) => {
@@ -276,30 +303,56 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="p-4 border-t">
-        <form onSubmit={handleSubmit} className="flex gap-2">
+      <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
+        <div className="relative w-full flex flex-col gap-4">
           <Textarea
             ref={textareaRef}
             value={input}
             onChange={handleInputChange}
-            onKeyDown={handleKeyPress}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                e.preventDefault();
+                if (status === 'ready' && input.trim()) {
+                  handleSubmit(e);
+                }
+              }
+            }}
             placeholder="Ask a question about your documents..."
-            className="resize-none"
-            rows={3}
-            disabled={status === 'streaming'}
+            className="min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700"
+            rows={2}
+            disabled={status !== 'ready'}
           />
-          <Button
-            type="submit"
-            disabled={!input.trim() || status === 'streaming'}
-            size="sm"
-            className="self-end"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
-        </form>
-        <p className="text-xs text-muted-foreground mt-2">
-          Press Enter to send, Shift+Enter for new line
-        </p>
+          
+          <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
+            {status !== 'ready' ? (
+              <Button
+                className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
+                onClick={(e) => {
+                  e.preventDefault();
+                  // Add stop functionality if needed
+                }}
+              >
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+              </Button>
+            ) : (
+              <Button
+                type="submit"
+                disabled={!input.trim() || status !== 'ready'}
+                className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
+                onClick={(e) => {
+                  e.preventDefault();
+                  handleSubmit(e);
+                }}
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+      </form>
+      
+      {/* Error messages positioned outside the form */}
+      <div className="px-4 pb-4">
         {(streamError) && (
           <div className="flex items-center gap-2 mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
             <AlertCircle className="h-3 w-3 flex-shrink-0" />

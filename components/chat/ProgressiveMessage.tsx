@@ -1,11 +1,11 @@
 import { UIMessage } from "@ai-sdk/react";
-import { Card, CardContent } from "@/components/ui/card";
-import { Bot, User, AlertCircle, RefreshCw, Copy } from "lucide-react";
+import { Bot, AlertCircle, RefreshCw, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Citation } from "@/lib/types/citations";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { useToolProgress } from "@/lib/hooks/useToolProgress";
+import { AnimatePresence, motion } from "framer-motion";
 // Simplified for search-only approach - removed synthesis dependencies
 
 interface ProgressiveMessageProps {
@@ -48,46 +48,52 @@ export function ProgressiveMessage({
         {messageParts.map((part, index) => {
           if (part.type === 'text' && part.text && part.text.trim()) {
             return (
-              <div key={`${message.id}-part-${index}`} className="flex gap-3 justify-start">
-                <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="h-4 w-4 text-primary-foreground" />
-                </div>
-                <div className="max-w-[80%] space-y-3 order-1">
-                  <div className="animate-fade-in delay-200">
-                    <Card className="bg-muted">
-                      <CardContent className="p-3">
-                        <MarkdownRenderer content={part.text} />
-                      </CardContent>
-                    </Card>
+              <motion.div
+                key={`${message.id}-part-${index}`}
+                className="w-full mx-auto max-w-3xl px-4 group/message"
+                initial={{ y: 5, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                data-role="assistant"
+              >
+                <div className="flex gap-4 w-full">
+                  <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
+                    <div className="translate-y-px">
+                      <Bot size={14} />
+                    </div>
                   </div>
-                  {/* Message Metadata */}
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <span>{formatTimestamp(new Date())}</span>
-                    {persistenceError && (
-                      <>
-                        <AlertCircle className="h-3 w-3 text-destructive" />
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-auto p-1 text-destructive hover:text-destructive"
-                          onClick={onRetryPersistence}
-                          title="Message not saved - click to retry"
-                        >
-                          <RefreshCw className="h-3 w-3" />
-                        </Button>
-                      </>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-auto p-1"
-                      onClick={() => onCopy?.(part.text || '')}
-                    >
-                      <Copy className="h-3 w-3" />
-                    </Button>
+                  <div className="flex flex-col gap-4 w-full">
+                    <div className="flex flex-col gap-4">
+                      <MarkdownRenderer content={part.text} />
+                    </div>
+                    {/* Message Actions */}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground opacity-0 group-hover/message:opacity-100 transition-opacity">
+                      <span>{formatTimestamp(new Date())}</span>
+                      {persistenceError && (
+                        <>
+                          <AlertCircle className="h-3 w-3 text-destructive" />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-auto p-1 text-destructive hover:text-destructive"
+                            onClick={onRetryPersistence}
+                            title="Message not saved - click to retry"
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                          </Button>
+                        </>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-auto p-1 rounded-full"
+                        onClick={() => onCopy?.(part.text || '')}
+                      >
+                        <Copy className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           } else if (part.type && part.type.startsWith('tool-')) {
             // Extract tool name from type (e.g., "tool-search_all_documents" -> "search_all_documents")
@@ -110,39 +116,47 @@ export function ProgressiveMessage({
             const isActive = matchingTool.isActive;
             
             return (
-              <div key={`${message.id}-tool-${index}`} className="flex gap-3 justify-start">
-                <div className="w-8 h-8 flex-shrink-0" />
-                <div className="max-w-[70%]">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground py-1 px-3 bg-muted/30 rounded-lg">
-                    {isActive ? (
-                      <>
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-current"></div>
-                        <span>
-                          {toolName === 'find_document_ids' && 'Looking up documents'}
-                          {toolName === 'search_specific_documents' && 'Searching specific documents'}
-                          {toolName === 'search_all_documents' && 'Searching all documents'}
-                          {searchQuery && `: "${searchQuery}"`}
-                        </span>
-                      </>
-                    ) : matchingTool.state === 'output-available' ? (
-                      <>
-                        <div className="w-3 h-3 rounded-full bg-green-600 flex items-center justify-center">
-                          <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
-                        </div>
-                        <span>
-                          {toolName === 'find_document_ids' && 'Found document IDs'}
-                          {toolName === 'search_specific_documents' && (
-                            resultCount ? `Found ${resultCount} passage${resultCount === 1 ? '' : 's'} in specific documents` : 'Searched specific documents'
-                          )}
-                          {toolName === 'search_all_documents' && (
-                            resultCount ? `Found ${resultCount} passage${resultCount === 1 ? '' : 's'} across all documents` : 'Search completed'
-                          )}
-                        </span>
-                      </>
-                    ) : null}
+              <motion.div
+                key={`${message.id}-tool-${index}`}
+                className="w-full mx-auto max-w-3xl px-4 group/message"
+                initial={{ y: 5, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                data-role="assistant"
+              >
+                <div className="flex gap-4 w-full">
+                  <div className="size-8 flex-shrink-0" />
+                  <div className="flex flex-col gap-4 w-full">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-2 px-3 bg-muted/30 border border-border/50 rounded-lg">
+                      {isActive ? (
+                        <>
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-analysis"></div>
+                          <span>
+                            {toolName === 'find_document_ids' && 'Looking up documents'}
+                            {toolName === 'search_specific_documents' && 'Searching specific documents'}
+                            {toolName === 'search_all_documents' && 'Searching all documents'}
+                            {searchQuery && `: "${searchQuery}"`}
+                          </span>
+                        </>
+                      ) : matchingTool.state === 'output-available' ? (
+                        <>
+                          <div className="w-3 h-3 rounded-full bg-analysis/80 flex items-center justify-center">
+                            <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
+                          </div>
+                          <span>
+                            {toolName === 'find_document_ids' && 'Found document IDs'}
+                            {toolName === 'search_specific_documents' && (
+                              resultCount ? `Found ${resultCount} passage${resultCount === 1 ? '' : 's'} in specific documents` : 'Searched specific documents'
+                            )}
+                            {toolName === 'search_all_documents' && (
+                              resultCount ? `Found ${resultCount} passage${resultCount === 1 ? '' : 's'} across all documents` : 'Search completed'
+                            )}
+                          </span>
+                        </>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </motion.div>
             );
           }
           return null;
@@ -151,66 +165,70 @@ export function ProgressiveMessage({
     );
   }
 
-  // Fallback to old rendering if parts are not available
+  // Fallback to ai-chatbot style rendering if parts are not available
   return (
-    <div className={cn("flex gap-3 justify-start")}>
-      <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-        <Bot className="h-4 w-4 text-primary-foreground" />
-      </div>
+    <AnimatePresence>
+      <motion.div
+        className="w-full mx-auto max-w-3xl px-4 group/message"
+        initial={{ y: 5, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        data-role="assistant"
+      >
+        <div className="flex gap-4 w-full">
+          <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
+            <div className="translate-y-px">
+              <Bot size={14} />
+            </div>
+          </div>
 
-      <div className="max-w-[80%] space-y-3 order-1">
-        {/* Simplified message rendering - extract content from parts */}
-        {message.parts && message.parts.some(part => part.type === 'text' && part.text) && (
-          <div className="animate-fade-in delay-200">
-            <Card className="bg-muted">
-              <CardContent className="p-3">
+          <div className="flex flex-col gap-4 w-full">
+            {/* Simplified message rendering - extract content from parts */}
+            {message.parts && message.parts.some(part => part.type === 'text' && part.text) && (
+              <div className="flex flex-col gap-4">
                 <MarkdownRenderer content={
                   message.parts
                     ?.filter(part => part.type === 'text')
                     .map(part => part.text)
                     .join('') || ''
                 } />
-              </CardContent>
-            </Card>
-          </div>
-        )}
-        
-        {/* TODO: Tool Invocations - will be implemented in Phase 1F */}
-        {/* Tool invocation display needs to be updated for v5 part structure */}
-
-        {/* Message Metadata */}
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatTimestamp(new Date())}</span>
-          {persistenceError && (
-            <>
-              <AlertCircle className="h-3 w-3 text-destructive" />
+              </div>
+            )}
+            
+            {/* Message Actions */}
+            <div className="flex items-center gap-2 text-xs text-muted-foreground opacity-0 group-hover/message:opacity-100 transition-opacity">
+              <span>{formatTimestamp(new Date())}</span>
+              {persistenceError && (
+                <>
+                  <AlertCircle className="h-3 w-3 text-destructive" />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-auto p-1 text-destructive hover:text-destructive"
+                    onClick={onRetryPersistence}
+                    title="Message not saved - click to retry"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                  </Button>
+                </>
+              )}
               <Button
                 size="sm"
                 variant="ghost"
-                className="h-auto p-1 text-destructive hover:text-destructive"
-                onClick={onRetryPersistence}
-                title="Message not saved - click to retry"
+                className="h-auto p-1 rounded-full"
+                onClick={() => onCopy?.(
+                  message.parts
+                    ?.filter(part => part.type === 'text')
+                    .map(part => part.text)
+                    .join('') || ''
+                )}
               >
-                <RefreshCw className="h-3 w-3" />
+                <Copy className="h-3 w-3" />
               </Button>
-            </>
-          )}
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-auto p-1"
-            onClick={() => onCopy?.(
-              message.parts
-                ?.filter(part => part.type === 'text')
-                .map(part => part.text)
-                .join('') || ''
-            )}
-          >
-            <Copy className="h-3 w-3" />
-          </Button>
+            </div>
+          </div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }
 
@@ -218,7 +236,6 @@ function UserMessage({
   message,
   persistenceError,
   onRetryPersistence,
-  formatTimestamp,
 }: {
   message: UIMessage;
   persistenceError: boolean;
@@ -226,41 +243,41 @@ function UserMessage({
   formatTimestamp: (date: Date) => string;
 }) {
   return (
-    <div className={cn("flex gap-3 justify-end")}>
-      <div className="max-w-[80%] space-y-2 order-2">
-        <Card className="bg-primary text-primary-foreground">
-          <CardContent className="p-3">
-            <MarkdownRenderer content={
-              message.parts
-                ?.filter(part => part.type === 'text')
-                .map(part => part.text)
-                .join('') || ''
-            } />
-          </CardContent>
-        </Card>
+    <AnimatePresence>
+      <motion.div
+        className="w-full mx-auto max-w-3xl px-4 group/message"
+        initial={{ y: 5, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        data-role="user"
+      >
+        <div className="flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit">
+          <div className="flex flex-col gap-4 w-full">
+            <div className="bg-primary text-primary-foreground px-3 py-2 rounded-xl">
+              <MarkdownRenderer content={
+                message.parts
+                  ?.filter(part => part.type === 'text')
+                  .map(part => part.text)
+                  .join('') || ''
+              } />
+            </div>
 
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span>{formatTimestamp(new Date())}</span>
-          {persistenceError && (
-            <>
-              <AlertCircle className="h-3 w-3 text-destructive" />
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-auto p-1 text-destructive hover:text-destructive"
-                onClick={onRetryPersistence}
-                title="Message not saved - click to retry"
-              >
-                <RefreshCw className="h-3 w-3" />
-              </Button>
-            </>
-          )}
+            {persistenceError && (
+              <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground opacity-0 group-hover/message:opacity-100 transition-opacity">
+                <AlertCircle className="h-3 w-3 text-destructive" />
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-auto p-1 text-destructive hover:text-destructive"
+                  onClick={onRetryPersistence}
+                  title="Message not saved - click to retry"
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
-      </div>
-
-      <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center flex-shrink-0 order-3">
-        <User className="h-4 w-4" />
-      </div>
-    </div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

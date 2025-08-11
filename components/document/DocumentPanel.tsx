@@ -1,7 +1,6 @@
 "use client";
 
 import { FileUpload } from "./FileUpload";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -9,10 +8,11 @@ import {
   Loader2, 
   CheckCircle, 
   XCircle, 
-  Trash2,
-  Download 
+  Download,
+  MoreHorizontal 
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Document {
   id: string;
@@ -67,13 +67,45 @@ export function DocumentPanel({
   const getStatusIcon = (processingStatus: string) => {
     switch (processingStatus) {
       case "PROCESSING":
-        return <Loader2 className="h-4 w-4 animate-spin text-blue-500" />;
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 200 }}
+          >
+            <Loader2 className="h-4 w-4 animate-spin text-analysis" />
+          </motion.div>
+        );
       case "COMPLETED":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
+          >
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </motion.div>
+        );
       case "FAILED":
-        return <XCircle className="h-4 w-4 text-red-500" />;
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
+          >
+            <XCircle className="h-4 w-4 text-destructive" />
+          </motion.div>
+        );
       default:
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return (
+          <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ type: "spring", stiffness: 200, delay: 0.1 }}
+          >
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </motion.div>
+        );
     }
   };
 
@@ -91,90 +123,174 @@ export function DocumentPanel({
   };
 
   return (
-    <div className="h-full flex flex-col bg-background">
-      <div className="p-4 border-b">
-        <h2 className="font-semibold mb-4">Documents</h2>
+    <div className="flex flex-col h-full bg-background border-r border-border">
+      {/* Header with ai-chatbot styling */}
+      <div className="flex flex-col gap-4 p-4 border-b border-border/50">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">Documents</h2>
+          <Badge variant="secondary" className="text-xs">
+            {documents.length}
+          </Badge>
+        </div>
         <FileUpload 
           studyId={studyId}
           onFileUploaded={handleFileUpload}
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {documents.length === 0 ? (
-          <div className="text-center py-8">
-            <FileText className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
-            <p className="text-sm text-muted-foreground">
-              No documents uploaded yet
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              Upload files to start analyzing with AI
-            </p>
-          </div>
-        ) : (
-          documents.map((doc) => (
-            <Card 
-              key={doc.id} 
-              className={cn(
-                "transition-colors hover:bg-muted/50",
-                highlightedDocumentId === doc.id && "ring-2 ring-primary bg-primary/5"
-              )}
+      {/* Document List with ai-chatbot patterns */}
+      <div className="flex-1 overflow-y-auto p-2">
+        <AnimatePresence>
+          {documents.length === 0 ? (
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex flex-col items-center justify-center py-12 px-4"
             >
-              <CardContent className="p-3">
-                <div className="flex items-start gap-3">
-                  <div className="text-lg leading-none">
+              <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center mb-4">
+                <FileText className="h-8 w-8 text-muted-foreground" />
+              </div>
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="text-center space-y-2"
+              >
+                <h3 className="text-sm font-medium">No documents yet</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Upload files to start analyzing with AI
+                </p>
+              </motion.div>
+            </motion.div>
+          ) : (
+            documents.map((doc, index) => (
+              <motion.div
+                key={doc.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className={cn(
+                  "group relative flex items-center gap-3 rounded-lg p-3 transition-all hover:bg-muted/50 cursor-pointer",
+                  highlightedDocumentId === doc.id && "bg-primary/5 ring-1 ring-primary/20"
+                )}
+              >
+                {/* File Icon */}
+                <motion.div 
+                  className={cn(
+                    "flex items-center justify-center w-10 h-10 rounded-lg shrink-0 transition-all duration-300",
+                    doc.processingStatus === "PROCESSING" 
+                      ? "bg-analysis/10 animate-pulse" 
+                      : "bg-muted/50 group-hover:bg-muted/70"
+                  )}
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 300 }}
+                >
+                  <motion.span 
+                    className="text-lg leading-none"
+                    animate={doc.processingStatus === "PROCESSING" ? {
+                      scale: [1, 1.1, 1],
+                      opacity: [0.7, 1, 0.7]
+                    } : {}}
+                    transition={{ 
+                      duration: 2, 
+                      repeat: doc.processingStatus === "PROCESSING" ? Infinity : 0,
+                      ease: "easeInOut"
+                    }}
+                  >
                     {getFileIcon(doc.mimeType)}
+                  </motion.span>
+                </motion.div>
+                
+                {/* File Info */}
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-sm font-medium truncate pr-2">
+                      {doc.originalName || doc.fileName}
+                    </h4>
+                    {getStatusIcon(doc.processingStatus)}
                   </div>
                   
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <h4 className="text-sm font-medium truncate">
-                        {doc.originalName || doc.fileName}
-                      </h4>
-                      {getStatusIcon(doc.processingStatus)}
-                      {citationCounts[doc.id] && citationCounts[doc.id] > 0 && (
-                        <Badge variant="secondary" className="text-xs">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{formatFileSize(doc.fileSize)}</span>
+                    <span>•</span>
+                    <motion.span 
+                      className={cn(
+                        "transition-colors font-medium text-xs",
+                        doc.processingStatus === "COMPLETED" && "text-green-600",
+                        doc.processingStatus === "PROCESSING" && "text-analysis",
+                        doc.processingStatus === "FAILED" && "text-destructive"
+                      )}
+                      animate={doc.processingStatus === "PROCESSING" ? {
+                        opacity: [0.6, 1, 0.6]
+                      } : {}}
+                      transition={{ 
+                        duration: 1.5, 
+                        repeat: doc.processingStatus === "PROCESSING" ? Infinity : 0,
+                        ease: "easeInOut"
+                      }}
+                    >
+                      {getStatusText(doc.processingStatus)}
+                    </motion.span>
+                    {citationCounts[doc.id] && citationCounts[doc.id] > 0 && (
+                      <>
+                        <span>•</span>
+                        <Badge variant="secondary" className="text-xs h-4 px-1.5">
                           {citationCounts[doc.id]} cited
                         </Badge>
-                      )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span>{formatFileSize(doc.fileSize)}</span>
-                      <span>•</span>
-                      <span className={cn(
-                        doc.processingStatus === "COMPLETED" && "text-green-600",
-                        doc.processingStatus === "PROCESSING" && "text-blue-600",
-                        doc.processingStatus === "FAILED" && "text-red-600"
-                      )}>
-                        {getStatusText(doc.processingStatus)}
-                      </span>
-                    </div>
-                    
-                    {doc.processingStatus === "FAILED" && (
-                      <div className="mt-2">
-                        <Button size="sm" variant="outline" className="h-7 text-xs">
-                          Retry
-                        </Button>
-                      </div>
+                      </>
                     )}
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    {doc.processingStatus === "COMPLETED" && (
-                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                        <Download className="h-3 w-3" />
+                  {doc.processingStatus === "PROCESSING" && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="pt-2"
+                    >
+                      <div className="w-full h-1 bg-muted/50 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-analysis rounded-full"
+                          initial={{ width: "0%" }}
+                          animate={{ width: "100%" }}
+                          transition={{
+                            duration: 3,
+                            repeat: Infinity,
+                            ease: "easeInOut"
+                          }}
+                        />
+                      </div>
+                    </motion.div>
+                  )}
+
+                  {doc.processingStatus === "FAILED" && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      className="pt-2"
+                    >
+                      <Button size="sm" variant="outline" className="h-6 text-xs px-2 hover:bg-primary/5">
+                        Retry
                       </Button>
-                    )}
-                    <Button size="sm" variant="ghost" className="h-7 w-7 p-0">
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
-                  </div>
+                    </motion.div>
+                  )}
                 </div>
-              </CardContent>
-            </Card>
-          ))
-        )}
+
+                {/* Actions */}
+                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                  {doc.processingStatus === "COMPLETED" && (
+                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full">
+                      <Download className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full">
+                    <MoreHorizontal className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

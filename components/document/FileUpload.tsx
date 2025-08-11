@@ -2,11 +2,11 @@
 
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Card } from "@/components/ui/card";
-import { Upload, File, Loader2 } from "lucide-react";
+import { Upload, File, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/lib/hooks/useFileUpload";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface FileUploadProps {
   studyId: string;
@@ -58,61 +58,161 @@ export function FileUpload({ studyId, onFileUploaded, className, disabled }: Fil
 
   return (
     <div className={className}>
-      <Card
-        {...getRootProps()}
-        className={cn(
-          "border-2 border-dashed transition-colors cursor-pointer",
-          isDragActive && !isDragReject && "border-primary bg-primary/5",
-          isDragReject && "border-destructive bg-destructive/5",
-          (disabled || isUploading) && "cursor-not-allowed opacity-50"
-        )}
-      >
+      <div {...getRootProps()}>
+        <motion.div
+          className={cn(
+            "relative group rounded-xl border-2 border-dashed transition-all duration-300 cursor-pointer overflow-hidden",
+            "border-border/30 bg-muted/20 hover:bg-muted/40",
+            "hover:border-primary/40 hover:shadow-sm",
+            isDragActive && !isDragReject && "border-primary/60 bg-primary/5 shadow-lg scale-[1.01]",
+            isDragReject && "border-destructive/60 bg-destructive/5 shadow-lg",
+            (disabled || isUploading) && "cursor-not-allowed opacity-50"
+          )}
+          whileHover={{ scale: isUploading ? 1 : 1.005 }}
+          whileTap={{ scale: isUploading ? 1 : 0.998 }}
+          layout
+        >
         <input {...getInputProps()} />
-        <div className="flex flex-col items-center justify-center p-6 text-center">
-          {isUploading ? (
-            <>
-              <Loader2 className="h-8 w-8 text-primary mb-3 animate-spin" />
-              <p className="text-sm text-primary font-medium">
-                Uploading {uploadingFiles.length} file{uploadingFiles.length !== 1 ? "s" : ""}...
-              </p>
-              {uploadingFiles.map((upload) => (
-                <p key={upload.fileName} className="text-xs text-muted-foreground mt-1">
-                  {upload.fileName}: {upload.progress}%
-                </p>
-              ))}
-            </>
-          ) : isDragActive ? (
-            isDragReject ? (
+        
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={isUploading ? "uploading" : isDragActive ? "drag" : "idle"}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+            className="flex flex-col items-center justify-center p-8 text-center"
+          >
+            {isUploading ? (
               <>
-                <File className="h-8 w-8 text-destructive mb-3" />
-                <p className="text-sm text-destructive font-medium">
-                  File type not supported
-                </p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Only PDF, DOCX, and TXT files are allowed
-                </p>
+                <motion.div 
+                  className="relative mb-6"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                >
+                  <div className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center shadow-lg">
+                    <Loader2 className="h-7 w-7 text-primary animate-spin" />
+                  </div>
+                  <div className="absolute inset-0 rounded-full bg-primary/5 animate-pulse" />
+                </motion.div>
+                <motion.p 
+                  className="text-sm text-foreground font-medium mb-4"
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.1 }}
+                >
+                  Processing {uploadingFiles.length} file{uploadingFiles.length !== 1 ? "s" : ""}...
+                </motion.p>
+                <motion.div 
+                  className="space-y-2 w-full max-w-[200px]"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  {uploadingFiles.map((upload, index) => (
+                    <motion.div
+                      key={upload.fileName}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + index * 0.1 }}
+                      className="flex items-center justify-between text-xs bg-muted/60 rounded-lg px-3 py-2 backdrop-blur-sm"
+                    >
+                      <span className="truncate max-w-[120px] font-medium">{upload.fileName}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-1.5 bg-muted rounded-full overflow-hidden">
+                          <motion.div 
+                            className="h-full bg-primary rounded-full"
+                            initial={{ width: 0 }}
+                            animate={{ width: `${upload.progress}%` }}
+                            transition={{ duration: 0.3 }}
+                          />
+                        </div>
+                        <span className="text-primary font-bold text-xs min-w-[24px]">{upload.progress}%</span>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
               </>
+            ) : isDragActive ? (
+              isDragReject ? (
+                <>
+                  <motion.div 
+                    className="w-16 h-16 rounded-full bg-gradient-to-br from-destructive/20 to-destructive/10 flex items-center justify-center mb-4 shadow-lg"
+                    initial={{ rotate: -10 }}
+                    animate={{ rotate: 0 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <File className="h-7 w-7 text-destructive" />
+                  </motion.div>
+                  <motion.p 
+                    className="text-sm text-destructive font-semibold mb-2"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                  >
+                    File type not supported
+                  </motion.p>
+                  <motion.p 
+                    className="text-xs text-muted-foreground leading-relaxed"
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    Only PDF, DOCX, and TXT files are allowed
+                  </motion.p>
+                </>
+              ) : (
+                <>
+                  <motion.div 
+                    className="w-16 h-16 rounded-full bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mb-4 shadow-lg"
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <Upload className="h-7 w-7 text-primary animate-bounce" />
+                  </motion.div>
+                  <motion.p 
+                    className="text-sm text-primary font-semibold"
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                  >
+                    Drop files here to upload
+                  </motion.p>
+                </>
+              )
             ) : (
               <>
-                <Upload className="h-8 w-8 text-primary mb-3" />
-                <p className="text-sm text-primary font-medium">
-                  Drop files here to upload
-                </p>
+                <motion.div 
+                  className="w-14 h-14 rounded-full bg-muted/30 group-hover:bg-primary/10 flex items-center justify-center mb-4 transition-all duration-300 shadow-sm"
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <Plus className="h-6 w-6 text-muted-foreground group-hover:text-primary transition-colors duration-300" />
+                </motion.div>
+                <motion.p 
+                  className="text-sm font-medium mb-2 group-hover:text-foreground transition-colors duration-300"
+                  initial={{ opacity: 0.9 }}
+                  whileHover={{ opacity: 1 }}
+                >
+                  Add documents
+                </motion.p>
+                <motion.p 
+                  className="text-xs text-muted-foreground leading-relaxed max-w-[180px]"
+                  initial={{ opacity: 0.7 }}
+                  whileHover={{ opacity: 0.9 }}
+                >
+                  Drag & drop or click to upload PDF, DOCX, and TXT files
+                </motion.p>
               </>
-            )
-          ) : (
-            <>
-              <Upload className="h-8 w-8 text-muted-foreground mb-3" />
-              <p className="text-sm font-medium mb-1">
-                Drag & drop files here, or click to select
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Supports PDF, DOCX, and TXT files (max 10MB each)
-              </p>
-            </>
-          )}
-        </div>
-      </Card>
+            )}
+          </motion.div>
+        </AnimatePresence>
+        
+          {/* Enhanced gradient overlay for depth and sophistication */}
+          <div className="absolute inset-0 bg-gradient-to-br from-background/5 via-transparent to-muted/10 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-background/5 pointer-events-none" />
+        </motion.div>
+      </div>
     </div>
   );
 }
