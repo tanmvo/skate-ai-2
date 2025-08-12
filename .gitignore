@@ -43,3 +43,6 @@ next-env.d.ts
 # development uploads
 /dev-uploads/
 
+# ai-chatbot reference folder
+/ai-chatbot/
+
