@@ -7,12 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, RefreshCw, ArrowUp } from "lucide-react";
 import { toast } from "sonner";
-import { withRetry } from "@/lib/error-handling";
 import { Citation } from "@/lib/types/citations";
 import { ProgressiveMessage } from "./ProgressiveMessage";
 import { motion } from "framer-motion";
 import { useChatManager } from "@/lib/hooks/useChatManager";
-import { ChatHeaderDropdown } from "./ChatHeaderDropdown";
+import { useMessages } from "@/lib/hooks/useMessages";
+import { SimpleChatHeader } from "./SimpleChatHeader";
 
 interface ChatPanelProps {
   studyId: string;
@@ -22,64 +22,34 @@ interface ChatPanelProps {
 export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [persistenceErrors, setPersistenceErrors] = useState<Set<string>>(new Set());
   const [streamError, setStreamError] = useState<string | null>(null);
-  // Manual state management for v5 compatibility
   const [input, setInput] = useState('');
+  const [messagesLoaded, setMessagesLoaded] = useState(false);
 
   // Use the chat manager hook
   const { 
     currentChatId, 
     currentChat,
-    chats,
     loading: chatLoading, 
     error: chatError,
-    isSwitching,
     isCreatingNew,
     isGeneratingTitle,
-    titleGenerationChatId,
     createNewChat,
-    switchToChat,
     generateTitleInBackground,
   } = useChatManager(studyId);
 
-  const saveMessageWithRetry = useCallback(async (
-    role: 'USER' | 'ASSISTANT', 
-    content: string, 
-    citations?: Citation[]
-  ) => {
-    if (!currentChatId) {
-      throw new Error('No active chat');
-    }
+  // Use SWR for message loading with caching
+  const { 
+    messages: cachedMessages, 
+    error: messagesError,
+    mutate: mutateMessages,
+    isLoading: loadingMessages 
+  } = useMessages(studyId, currentChatId);
 
-    return withRetry(
-      async () => {
-        const response = await fetch(`/api/studies/${studyId}/chats/${currentChatId}/messages`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            role,
-            content,
-            citations,
-          }),
-        });
-
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || `HTTP ${response.status}`);
-        }
-
-        return response.json();
-      },
-      { maxAttempts: 3, delay: 1000, backoff: true }
-    );
-  }, [studyId, currentChatId]);
 
   const {
     messages,
-    // setMessages, // Not needed for current implementation
+    setMessages,
     sendMessage,
     status,
     // stop, // Not needed for current implementation  
@@ -120,36 +90,12 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
       },
     }),
     onFinish: async () => {
-      try {
-        // Save the assistant's message
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage && lastMessage.role === 'assistant') {
-          // Extract content from parts structure
-          const content = lastMessage.parts
-            ?.filter(part => part.type === 'text')
-            .map(part => part.text)
-            .join('') || '';
-            
-          await saveMessageWithRetry('ASSISTANT', content);
-          
-          setPersistenceErrors(prev => {
-            const next = new Set(prev);
-            next.delete(lastMessage.id);
-            return next;
-          });
-
-          // Trigger title generation after 6 messages (3 exchanges)
-          if (messages.length === 6 && currentChatId && currentChat?.title === 'New Chat') {
-            generateTitleInBackground(currentChatId);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to save assistant message:', err);
-        const lastMessage = messages[messages.length - 1];
-        if (lastMessage) {
-          setPersistenceErrors(prev => new Set(prev).add(lastMessage.id));
-        }
-        toast.error('Failed to save message. Your conversation may not be fully preserved.');
+      // Assistant messages are saved server-side, now invalidate SWR cache
+      mutateMessages();
+      
+      // Trigger title generation after 6 messages (3 exchanges)
+      if (messages.length === 6 && currentChatId && currentChat?.title === 'New Chat') {
+        generateTitleInBackground(currentChatId);
       }
     },
     onError: (error) => {
@@ -180,9 +126,28 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  // Auto-focus input when creating new chat or switching
+  // Load cached messages when available
   useEffect(() => {
-    if (!isSwitching && !isCreatingNew && currentChatId && textareaRef.current) {
+    if (cachedMessages.length > 0 && currentChatId && !loadingMessages) {
+      console.log('Setting cached messages:', cachedMessages.length, 'messages for chat:', currentChatId);
+      setMessages(cachedMessages);
+      setMessagesLoaded(true);
+    } else if (currentChatId && !loadingMessages && cachedMessages.length === 0) {
+      // Chat exists but has no messages - clear current messages
+      console.log('Clearing messages for empty chat:', currentChatId);
+      setMessages([]);
+      setMessagesLoaded(true);
+    }
+  }, [cachedMessages, currentChatId, loadingMessages, setMessages]);
+
+  // Reset messages loaded state when chat changes
+  useEffect(() => {
+    setMessagesLoaded(false);
+  }, [currentChatId]);
+
+  // Auto-focus input when creating new chat
+  useEffect(() => {
+    if (!isCreatingNew && currentChatId && textareaRef.current && messagesLoaded) {
       // Small delay to ensure the textarea is ready
       const focusTimeout = setTimeout(() => {
         textareaRef.current?.focus();
@@ -190,7 +155,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
       
       return () => clearTimeout(focusTimeout);
     }
-  }, [currentChatId, isSwitching, isCreatingNew]);
+  }, [currentChatId, isCreatingNew, messagesLoaded]);
 
   const resetHeight = useCallback(() => {
     if (textareaRef.current) {
@@ -208,13 +173,9 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     
     if (status !== 'ready' || !input.trim()) return;
     
-    // Save user message to database before sending
     const userMessage = input.trim();
-    saveMessageWithRetry('USER', userMessage).catch(err => {
-      console.error('Failed to save user message:', err);
-    });
     
-    // Send message using v5 API
+    // Send message using v5 API - user message saving is handled server-side
     sendMessage({
       role: 'user',
       parts: [{ type: 'text', text: userMessage }],
@@ -222,7 +183,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     
     setInput('');
     resetHeight();
-  }, [input, sendMessage, status, saveMessageWithRetry, resetHeight]);
+  }, [input, sendMessage, status, resetHeight]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -236,22 +197,6 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
 
   // Removed copyToClipboard - now handled inline
 
-  const retryMessagePersistence = async (messageId: string, role: 'USER' | 'ASSISTANT', content: string) => {
-    try {
-      // Simplified: No synthesis citations since we're using search-only approach
-      await saveMessageWithRetry(role, content);
-      setPersistenceErrors(prev => {
-        const next = new Set(prev);
-        next.delete(messageId);
-        return next;
-      });
-      toast.success('Message saved successfully');
-    } catch (err) {
-      console.error('Retry failed:', err);
-      toast.error('Failed to save message. Please try again.');
-    }
-  };
-
   const handleCitationClick = (citation: Citation) => {
     onCitationClick?.(citation);
   };
@@ -263,8 +208,34 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     }).format(date);
   };
 
-  // Don't render chat interface until we have a chatId
-  if (chatLoading || !currentChatId) {
+  // Show error state for messages
+  if (messagesError) {
+    return (
+      <div className="flex flex-col min-w-0 h-dvh bg-background">
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-semibold">Chat</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Failed to load messages
+          </p>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <p className="text-destructive mb-4">{messagesError.message}</p>
+            <Button onClick={() => mutateMessages()} variant="outline">
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Don't render chat interface until we have a chatId and messages are loaded
+  if (chatLoading || !currentChatId || (!messagesLoaded && loadingMessages)) {
     return (
       <div className="flex flex-col min-w-0 h-dvh bg-background">
         <div className="p-4 border-b">
@@ -307,15 +278,11 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     <div className="flex flex-col min-w-0 h-dvh bg-background">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-2">
-          <ChatHeaderDropdown
+          <SimpleChatHeader
             currentChat={currentChat}
-            recentChats={chats.slice(0, 5)}
-            onChatSelect={switchToChat}
             onNewChat={createNewChat}
-            isSwitching={isSwitching}
             isCreatingNew={isCreatingNew}
             isGeneratingTitle={isGeneratingTitle}
-            titleGenerationChatId={titleGenerationChatId}
           />
         </div>
         <p className="text-sm text-muted-foreground">
@@ -365,19 +332,10 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
               <ProgressiveMessage
                 key={message.id}
                 message={message}
-                persistenceError={persistenceErrors.has(message.id)}
+                persistenceError={false} // Server-side persistence - no client errors
                 onCitationClick={handleCitationClick}
                 onRetryPersistence={() => {
-                  // Extract content from parts structure for v5
-                  const content = message.parts
-                    ?.filter(part => part.type === 'text')
-                    .map(part => part.text)
-                    .join('') || '';
-                  retryMessagePersistence(
-                    message.id, 
-                    message.role.toUpperCase() as 'USER' | 'ASSISTANT', 
-                    content
-                  );
+                  // No-op: Server handles all persistence now
                 }}
                 onCopy={(text: string) => {
                   navigator.clipboard.writeText(text);
@@ -458,12 +416,6 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
                 <RefreshCw className="h-3 w-3" />
               </Button>
             )}
-          </div>
-        )}
-        {persistenceErrors.size > 0 && (
-          <div className="flex items-center gap-2 mt-1 p-2 bg-amber-50 dark:bg-amber-950/20 rounded text-xs text-amber-700 dark:text-amber-400">
-            <AlertCircle className="h-3 w-3 flex-shrink-0" />
-            <span>{persistenceErrors.size} message(s) not saved. Click the retry button next to affected messages.</span>
           </div>
         )}
       </div>

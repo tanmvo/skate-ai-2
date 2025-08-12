@@ -1,6 +1,7 @@
 "use client";
 
 import { FileUpload } from "./FileUpload";
+import { DocumentActionsMenu } from "./document-actions-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -31,6 +32,9 @@ interface DocumentPanelProps {
   studyId: string;
   highlightedDocumentId?: string;
   citationCounts?: Record<string, number>;
+  onDocumentRename?: (documentId: string, newName: string) => Promise<void>;
+  onDocumentDelete?: (documentId: string) => Promise<void>;
+  onDocumentRetry?: (documentId: string) => Promise<void>;
 }
 
 export function DocumentPanel({ 
@@ -38,7 +42,10 @@ export function DocumentPanel({
   onFileUploaded, 
   studyId, 
   highlightedDocumentId,
-  citationCounts = {}
+  citationCounts = {},
+  onDocumentRename,
+  onDocumentDelete,
+  onDocumentRetry
 }: DocumentPanelProps) {
   const handleFileUpload = (file: { id: string; fileName: string; status: string }) => {
     onFileUploaded?.(file);
@@ -278,14 +285,25 @@ export function DocumentPanel({
 
                 {/* Actions */}
                 <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                  {doc.processingStatus === "COMPLETED" && (
-                    <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full">
-                      <Download className="h-3.5 w-3.5" />
-                    </Button>
+                  {(onDocumentRename || onDocumentDelete || onDocumentRetry) ? (
+                    <DocumentActionsMenu
+                      document={doc}
+                      onRename={onDocumentRename ? (newName) => onDocumentRename(doc.id, newName) : undefined}
+                      onDelete={onDocumentDelete ? () => onDocumentDelete(doc.id) : undefined}
+                      onRetry={onDocumentRetry ? () => onDocumentRetry(doc.id) : undefined}
+                    />
+                  ) : (
+                    <>
+                      {doc.processingStatus === "COMPLETED" && (
+                        <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full">
+                          <Download className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full">
+                        <MoreHorizontal className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
                   )}
-                  <Button size="sm" variant="ghost" className="h-8 w-8 p-0 rounded-full">
-                    <MoreHorizontal className="h-3.5 w-3.5" />
-                  </Button>
                 </div>
               </motion.div>
             ))

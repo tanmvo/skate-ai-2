@@ -1,9 +1,10 @@
 import { UIMessage } from "@ai-sdk/react";
-import { Bot, AlertCircle, RefreshCw, Copy } from "lucide-react";
+import { Bot, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { Citation } from "@/lib/types/citations";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
+import { MessageActions } from "@/components/chat/MessageActions";
 import { useToolProgress } from "@/lib/hooks/useToolProgress";
 import { AnimatePresence, motion } from "framer-motion";
 // Simplified for search-only approach - removed synthesis dependencies
@@ -66,10 +67,9 @@ export function ProgressiveMessage({
                       <MarkdownRenderer content={part.text} />
                     </div>
                     {/* Message Actions */}
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground opacity-0 group-hover/message:opacity-100 transition-opacity">
-                      <span>{formatTimestamp(new Date())}</span>
+                    <div className="flex items-center gap-2">
                       {persistenceError && (
-                        <>
+                        <div className="flex items-center gap-2">
                           <AlertCircle className="h-3 w-3 text-destructive" />
                           <Button
                             size="sm"
@@ -80,16 +80,12 @@ export function ProgressiveMessage({
                           >
                             <RefreshCw className="h-3 w-3" />
                           </Button>
-                        </>
+                        </div>
                       )}
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-auto p-1 rounded-full"
-                        onClick={() => onCopy?.(part.text || '')}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
+                      <MessageActions 
+                        message={{ ...message, parts: [{ type: 'text', text: part.text }] } as UIMessage}
+                        onCopy={onCopy!}
+                      />
                     </div>
                   </div>
                 </div>
@@ -195,10 +191,9 @@ export function ProgressiveMessage({
             )}
             
             {/* Message Actions */}
-            <div className="flex items-center gap-2 text-xs text-muted-foreground opacity-0 group-hover/message:opacity-100 transition-opacity">
-              <span>{formatTimestamp(new Date())}</span>
+            <div className="flex items-center gap-2">
               {persistenceError && (
-                <>
+                <div className="flex items-center gap-2">
                   <AlertCircle className="h-3 w-3 text-destructive" />
                   <Button
                     size="sm"
@@ -209,21 +204,12 @@ export function ProgressiveMessage({
                   >
                     <RefreshCw className="h-3 w-3" />
                   </Button>
-                </>
+                </div>
               )}
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-auto p-1 rounded-full"
-                onClick={() => onCopy?.(
-                  message.parts
-                    ?.filter(part => part.type === 'text')
-                    .map(part => part.text)
-                    .join('') || ''
-                )}
-              >
-                <Copy className="h-3 w-3" />
-              </Button>
+              <MessageActions 
+                message={message}
+                onCopy={onCopy!}
+              />
             </div>
           </div>
         </div>
@@ -262,7 +248,7 @@ function UserMessage({
             </div>
 
             {persistenceError && (
-              <div className="flex items-center justify-end gap-2 text-xs text-muted-foreground opacity-0 group-hover/message:opacity-100 transition-opacity">
+              <div className="flex items-center justify-end gap-2">
                 <AlertCircle className="h-3 w-3 text-destructive" />
                 <Button
                   size="sm"

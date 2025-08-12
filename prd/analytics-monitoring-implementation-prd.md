@@ -403,6 +403,16 @@ const businessMetrics = {
 - [ ] Page view and navigation tracking
 - [ ] GDPR consent management implementation
 
+**⚠️ ACTION REQUIRED:** Before implementation can begin, please:
+1. Create a PostHog account at https://posthog.com/signup
+2. Set up a new project for "Skate AI"
+3. Add the following environment variables to your `.env.local`:
+   ```
+   NEXT_PUBLIC_POSTHOG_KEY="your_posthog_project_api_key"
+   POSTHOG_API_KEY="your_posthog_personal_api_key"
+   ```
+4. Reply with "Ready to implement" once credentials are added
+
 ### Phase 2: Core Event Tracking (Week 2)
 - [ ] Document upload and processing events
 - [ ] AI chat interaction tracking

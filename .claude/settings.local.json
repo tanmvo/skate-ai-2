@@ -21,7 +21,8 @@
       "WebFetch(domain:docs.anthropic.com)",
       "WebFetch(domain:api.github.com)",
       "Bash(node:*)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   }

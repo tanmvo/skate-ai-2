@@ -7,6 +7,7 @@ import { DocumentPanel } from "@/components/document/DocumentPanel";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useRouter, useParams } from "next/navigation";
 import { StudyProvider, useStudyContext } from "@/lib/contexts/StudyContext";
+import { useDocuments } from "@/lib/hooks/useDocuments";
 import { Citation } from "@/lib/types/citations";
 import {
   DropdownMenu,
@@ -18,6 +19,7 @@ import {
 function StudyPageContent() {
   const router = useRouter();
   const { study, isLoading, error, refreshStudy } = useStudyContext();
+  const { deleteDocument } = useDocuments(study?.id || '');
   const [highlightedDocumentId, setHighlightedDocumentId] = useState<string | undefined>();
   const [citationCounts, setCitationCounts] = useState<Record<string, number>>({});
 
@@ -51,6 +53,12 @@ function StudyPageContent() {
       ...prev,
       [citation.documentId]: (prev[citation.documentId] || 0) + 1
     }));
+  };
+
+  const handleDocumentDelete = async (documentId: string) => {
+    await deleteDocument(documentId);
+    // Refresh study data to update document list
+    refreshStudy();
   };
 
   // Handle errors by redirecting to dashboard
@@ -116,6 +124,7 @@ function StudyPageContent() {
               studyId={study.id}
               highlightedDocumentId={highlightedDocumentId}
               citationCounts={citationCounts}
+              onDocumentDelete={handleDocumentDelete}
             />
           </div>
           

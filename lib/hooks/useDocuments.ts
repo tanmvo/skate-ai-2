@@ -20,6 +20,22 @@ async function deleteDocumentAPI(documentId: string): Promise<void> {
   }
 }
 
+async function renameDocumentAPI(documentId: string, fileName: string): Promise<StudyDocument> {
+  const response = await fetch(`/api/documents/${documentId}`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ fileName }),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to rename document');
+  }
+  
+  return response.json();
+}
+
 export function useDocuments(studyId: string) {
   const { data: documents, error, isLoading, mutate } = useSWR<StudyDocument[]>(
     studyId ? `/api/studies/${studyId}/documents` : null,
@@ -53,6 +69,32 @@ export function useDocuments(studyId: string) {
     }
   };
 
+  const renameDocument = async (documentId: string, fileName: string) => {
+    try {
+      // Optimistically update the cache
+      const optimisticDocuments = documents?.map(doc => 
+        doc.id === documentId 
+          ? { ...doc, fileName, originalName: fileName }
+          : doc
+      ) || [];
+      await mutate(optimisticDocuments, false);
+      
+      await renameDocumentAPI(documentId, fileName);
+      
+      // Revalidate to ensure consistency
+      await mutate();
+      
+      toast.success('Document renamed');
+    } catch (error) {
+      console.error('Error renaming document:', error);
+      toast.error('Failed to rename document');
+      
+      // Revert optimistic update
+      await mutate();
+      throw error;
+    }
+  };
+
   const refreshDocuments = () => {
     return mutate();
   };
@@ -68,6 +110,7 @@ export function useDocuments(studyId: string) {
     isLoading,
     error,
     deleteDocument,
+    renameDocument,
     refreshDocuments,
     addDocument,
     mutate,

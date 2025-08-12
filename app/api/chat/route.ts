@@ -80,6 +80,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Save user message to database first
+    try {
+      const userContent = message.parts
+        ?.filter((part: { type: string; text?: string }) => part.type === 'text')
+        .map((part: { type: string; text?: string }) => part.text)
+        .join('') || '';
+
+      await prisma.chatMessage.create({
+        data: {
+          role: 'USER',
+          content: userContent.trim(),
+          chatId: chatId,
+          studyId: studyId,
+        },
+      });
+      console.log('Server-side: Saved user message');
+    } catch (error) {
+      console.error('Server-side: Failed to save user message:', error);
+    }
+
     // Get study metadata context (with caching)
     let studyContext = '';
     
@@ -312,8 +332,33 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
           }));
         },
         generateId: () => `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`, // Simple ID generator
-        onFinish: async () => {
-          // Handle completion - could save to database here if needed
+        onFinish: async ({ messages }) => {
+          // Save all assistant messages to database (server-side persistence)
+          try {
+            for (const msg of messages) {
+              if (msg.role === 'assistant') {
+                // Extract content from parts structure
+                const content = msg.parts
+                  ?.filter(part => part.type === 'text')
+                  .map(part => part.text)
+                  .join('') || '';
+
+                if (content.trim()) {
+                  await prisma.chatMessage.create({
+                    data: {
+                      role: 'ASSISTANT',
+                      content: content.trim(),
+                      chatId: chatId,
+                      studyId: studyId,
+                    },
+                  });
+                  console.log('Server-side: Saved assistant message');
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Server-side: Failed to save assistant messages:', error);
+          }
         },
         onError: () => {
           return 'An error occurred while processing your request. Please try again.';
