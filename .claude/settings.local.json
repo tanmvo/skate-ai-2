@@ -19,7 +19,9 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:ai-sdk-preview-roundtrips.vercel.app)",
       "WebFetch(domain:docs.anthropic.com)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(node:*)",
+      "Bash(npm:*)"
     ],
     "deny": []
   }

@@ -15,6 +15,7 @@ model User {
   createdAt     DateTime  @default(now()) @map(name: "created_at")
   updatedAt     DateTime  @updatedAt @map(name: "updated_at")
   studies       Study[]
+  chats         Chat[]
   @@map(name: "users")
 }
 
@@ -26,6 +27,7 @@ model Study {
   userId      String?
   user        User?       @relation(fields: [userId], references: [id])
   documents   Document[]
+  chats       Chat[]
   messages    ChatMessage[]
 }
 
@@ -55,13 +57,27 @@ model DocumentChunk {
   document     Document  @relation(fields: [documentId], references: [id], onDelete: Cascade)
 }
 
+model Chat {
+  id          String    @id @default(cuid())
+  title       String    @default("New Chat")
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  studyId     String
+  study       Study     @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  messages    ChatMessage[]
+}
+
 model ChatMessage {
   id            String      @id @default(cuid())
   role          MessageRole
   content       String      @db.Text
   citations     Json?       
   timestamp     DateTime    @default(now())
-  studyId       String
+  chatId        String
+  chat          Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  studyId       String      // Denormalized for easier queries
   study         Study       @relation(fields: [studyId], references: [id], onDelete: Cascade)
 }
 

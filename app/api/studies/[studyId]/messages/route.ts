@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateStudyOwnership } from "@/lib/auth";
 import { Citation } from "@/lib/types/citations";
+import { ensureDefaultChat } from "@/lib/data";
 
 export async function POST(
   request: NextRequest,
@@ -38,11 +39,15 @@ export async function POST(
       );
     }
 
+    // Get or create default chat for backward compatibility
+    const defaultChat = await ensureDefaultChat(params.studyId);
+
     const message = await prisma.chatMessage.create({
       data: {
         role: role as 'USER' | 'ASSISTANT',
         content,
         citations: citations ? JSON.parse(JSON.stringify(citations)) : null,
+        chatId: defaultChat.id,
         studyId: params.studyId,
       },
     });

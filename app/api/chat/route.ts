@@ -2,6 +2,7 @@ import { streamText, createUIMessageStream, smoothStream, convertToModelMessages
 import { anthropic } from '@ai-sdk/anthropic';
 import { NextRequest } from 'next/server';
 import { validateStudyOwnership, getCurrentUserId } from '@/lib/auth';
+import { prisma } from '@/lib/prisma';
 import { 
   sanitizeError, 
   checkRateLimit, 
@@ -21,7 +22,7 @@ export async function POST(req: NextRequest) {
       throw new ServiceUnavailableError('AI service');
     }
 
-    const { message, id: studyId } = await req.json();
+    const { message, id: chatId } = await req.json();
 
     // Validate required fields
     if (!message) {
@@ -31,12 +32,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!studyId) {
+    if (!chatId) {
       return Response.json(
-        { error: 'Study ID is required' },
+        { error: 'Chat ID is required' },
         { status: 400 }
       );
     }
+
+    // Get chat and validate ownership via study
+    const chat = await prisma.chat.findUnique({
+      where: { id: chatId },
+      include: { study: true }
+    });
+
+    if (!chat) {
+      return Response.json(
+        { error: 'Chat not found' },
+        { status: 404 }
+      );
+    }
+
+    const studyId = chat.studyId;
 
     // Rate limiting check
     const userId = getCurrentUserId();
@@ -296,7 +312,7 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
           }));
         },
         generateId: () => `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`, // Simple ID generator
-        onFinish: async ({ messages }) => {
+        onFinish: async () => {
           // Handle completion - could save to database here if needed
         },
         onError: () => {

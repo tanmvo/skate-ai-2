@@ -31,6 +31,11 @@ ANTHROPIC_API_KEY="your_claude_api_key" # (Phase 2.3)
 BLOB_READ_WRITE_TOKEN="your_vercel_blob_token" # Optional
 ```
 
+## System Environment
+- Node.js 20.18.0
+- npm 10.8.2
+- macOS Darwin 20.6.0
+
 ## Key Technologies
 - Next.js 15.4.4
 - React 19.1.0
@@ -38,12 +43,17 @@ BLOB_READ_WRITE_TOKEN="your_vercel_blob_token" # Optional
 - Prisma 6.12.0
 - Tailwind CSS 4
 - ShadCN UI components
-- **AI SDK v4.3.19** - Tool calling and streaming
-- SWR for client-side data fetching
+- **AI SDK v5.0.9** - Tool calling and streaming
+- **Anthropic SDK v0.57.0** - Claude API integration
+- **AI SDK Anthropic v2.0.1** - Anthropic provider
+- **AI SDK React v2.0.9** - React integration
+- SWR 2.3.4 for client-side data fetching
 - ESLint 9
-- **Voyage AI** for document embeddings (`voyage-large-2`)
+- **Voyage AI v0.0.5** for document embeddings (`voyage-large-2`)
 - **Claude 3.5 Sonnet** for chat responses
-- Additional UI libraries: class-variance-authority, clsx, lucide-react, tailwind-merge
+- Additional UI libraries: class-variance-authority 0.7.1, clsx 2.1.1, lucide-react 0.526.0, tailwind-merge 3.3.1
+- Testing: Vitest 3.2.4, React Testing Library 16.3.0, Jest DOM 6.6.4
+- UI Components: Framer Motion 11.18.2, React Markdown 9.1.0, Sonner 2.0.6, React Dropzone 14.3.8
 
 ## Database
 - Uses Prisma ORM with PostgreSQL 

@@ -43,5 +43,3 @@ next-env.d.ts
 # development uploads
 /dev-uploads/
 
-# ai chatbot
-/ai-chatbot/

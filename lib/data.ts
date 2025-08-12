@@ -393,3 +393,100 @@ export async function getStudyDocumentContext(studyId: string): Promise<{
     throw error;
   }
 }
+
+// Chat management functions
+
+export async function getStudyChats(studyId: string) {
+  try {
+    const userId = getCurrentUserId();
+    
+    const chats = await prisma.chat.findMany({
+      where: {
+        studyId,
+        userId,
+      },
+      include: {
+        _count: {
+          select: {
+            messages: true,
+          },
+        },
+      },
+      orderBy: {
+        updatedAt: 'desc',
+      },
+    });
+    
+    return chats;
+  } catch (error) {
+    console.error("Error fetching study chats:", error);
+    throw error;
+  }
+}
+
+export async function ensureDefaultChat(studyId: string) {
+  try {
+    const userId = getCurrentUserId();
+    
+    // Check if study has any chats
+    const existingChat = await prisma.chat.findFirst({
+      where: {
+        studyId,
+        userId,
+      },
+    });
+
+    if (existingChat) {
+      return existingChat;
+    }
+
+    // Create default chat if none exists
+    const defaultChat = await prisma.chat.create({
+      data: {
+        title: "New Chat",
+        studyId,
+        userId,
+      },
+      include: {
+        _count: {
+          select: {
+            messages: true,
+          },
+        },
+      },
+    });
+
+    return defaultChat;
+  } catch (error) {
+    console.error("Error ensuring default chat:", error);
+    throw error;
+  }
+}
+
+export async function getChat(chatId: string) {
+  try {
+    const userId = getCurrentUserId();
+    
+    const chat = await prisma.chat.findFirst({
+      where: {
+        id: chatId,
+        userId,
+      },
+      include: {
+        messages: {
+          orderBy: { timestamp: 'asc' },
+        },
+        _count: {
+          select: {
+            messages: true,
+          },
+        },
+      },
+    });
+    
+    return chat;
+  } catch (error) {
+    console.error("Error fetching chat:", error);
+    throw error;
+  }
+}

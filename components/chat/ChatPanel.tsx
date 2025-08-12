@@ -11,6 +11,8 @@ import { withRetry } from "@/lib/error-handling";
 import { Citation } from "@/lib/types/citations";
 import { ProgressiveMessage } from "./ProgressiveMessage";
 import { motion } from "framer-motion";
+import { useChatManager } from "@/lib/hooks/useChatManager";
+import { ChatHeaderDropdown } from "./ChatHeaderDropdown";
 
 interface ChatPanelProps {
   studyId: string;
@@ -25,14 +27,34 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   // Manual state management for v5 compatibility
   const [input, setInput] = useState('');
 
+  // Use the chat manager hook
+  const { 
+    currentChatId, 
+    currentChat,
+    chats,
+    loading: chatLoading, 
+    error: chatError,
+    isSwitching,
+    isCreatingNew,
+    isGeneratingTitle,
+    titleGenerationChatId,
+    createNewChat,
+    switchToChat,
+    generateTitleInBackground,
+  } = useChatManager(studyId);
+
   const saveMessageWithRetry = useCallback(async (
     role: 'USER' | 'ASSISTANT', 
     content: string, 
     citations?: Citation[]
   ) => {
+    if (!currentChatId) {
+      throw new Error('No active chat');
+    }
+
     return withRetry(
       async () => {
-        const response = await fetch('/api/studies/' + studyId + '/messages', {
+        const response = await fetch(`/api/studies/${studyId}/chats/${currentChatId}/messages`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -53,7 +75,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
       },
       { maxAttempts: 3, delay: 1000, backoff: true }
     );
-  }, [studyId]);
+  }, [studyId, currentChatId]);
 
   const {
     messages,
@@ -63,7 +85,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     // stop, // Not needed for current implementation  
     regenerate,
   } = useChat({
-    id: studyId,
+    id: currentChatId || 'loading', // Use chatId instead of studyId
     experimental_throttle: 100, // 60fps throttling
     transport: new DefaultChatTransport({
       api: '/api/chat',
@@ -90,7 +112,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
       prepareSendMessagesRequest({ messages, body }) {
         return {
           body: {
-            id: studyId, // Use our studyId for the request
+            id: currentChatId, // Use our chatId for the request
             message: messages.at(-1), // Send last message as expected by API
             ...body,
           },
@@ -115,6 +137,11 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
             next.delete(lastMessage.id);
             return next;
           });
+
+          // Trigger title generation after 6 messages (3 exchanges)
+          if (messages.length === 6 && currentChatId && currentChat?.title === 'New Chat') {
+            generateTitleInBackground(currentChatId);
+          }
         }
       } catch (err) {
         console.error('Failed to save assistant message:', err);
@@ -153,6 +180,25 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
+  // Auto-focus input when creating new chat or switching
+  useEffect(() => {
+    if (!isSwitching && !isCreatingNew && currentChatId && textareaRef.current) {
+      // Small delay to ensure the textarea is ready
+      const focusTimeout = setTimeout(() => {
+        textareaRef.current?.focus();
+      }, 100);
+      
+      return () => clearTimeout(focusTimeout);
+    }
+  }, [currentChatId, isSwitching, isCreatingNew]);
+
+  const resetHeight = useCallback(() => {
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = '60px';
+    }
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
@@ -176,14 +222,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     
     setInput('');
     resetHeight();
-  }, [input, sendMessage, status, saveMessageWithRetry]);
-
-  const resetHeight = useCallback(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = '60px';
-    }
-  }, []);
+  }, [input, sendMessage, status, saveMessageWithRetry, resetHeight]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -224,11 +263,60 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     }).format(date);
   };
 
+  // Don't render chat interface until we have a chatId
+  if (chatLoading || !currentChatId) {
+    return (
+      <div className="flex flex-col min-w-0 h-dvh bg-background">
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-semibold">Chat</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Loading chat...
+          </p>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      </div>
+    );
+  }
+
+  if (chatError) {
+    return (
+      <div className="flex flex-col min-w-0 h-dvh bg-background">
+        <div className="p-4 border-b">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="font-semibold">Chat</h2>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Error loading chat
+          </p>
+        </div>
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center">
+            <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
+            <p className="text-destructive">{chatError}</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col min-w-0 h-dvh bg-background">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold">Chat</h2>
+          <ChatHeaderDropdown
+            currentChat={currentChat}
+            recentChats={chats.slice(0, 5)}
+            onChatSelect={switchToChat}
+            onNewChat={createNewChat}
+            isSwitching={isSwitching}
+            isCreatingNew={isCreatingNew}
+            isGeneratingTitle={isGeneratingTitle}
+            titleGenerationChatId={titleGenerationChatId}
+          />
         </div>
         <p className="text-sm text-muted-foreground">
           Ask questions about your documents
