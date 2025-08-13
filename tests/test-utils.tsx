@@ -2,6 +2,8 @@ import * as React from 'react';
 import { render, RenderOptions } from '@testing-library/react';
 import { SWRConfig } from 'swr';
 import { vi } from 'vitest';
+import { mockLLMResponses, mockMessages as llmMockMessages } from './fixtures/llm-responses';
+import { createMockUseChat, createMockHooks, resetMocks } from './mocks/ai-sdk-mock';
 
 // Export the globally available router mock
 export const mockRouter = (global as any).mockRouterFunctions || {
@@ -94,17 +96,29 @@ export const mockDocuments = [
   },
 ];
 
-// Mock chat messages
+// Mock chat messages in AI SDK v5 format
 export const mockMessages = [
   {
     id: 'msg_user_1',
     role: 'user' as const,
+    parts: [
+      {
+        type: 'text',
+        text: 'What are the main themes in this document?',
+      }
+    ],
     content: 'What are the main themes in this document?',
     createdAt: new Date('2025-01-15T12:00:00Z'),
   },
   {
     id: 'msg_assistant_1',
     role: 'assistant' as const,
+    parts: [
+      {
+        type: 'text',
+        text: 'Based on the document analysis, I can identify three main themes: user frustrations with the current system, desire for better automation, and concerns about data privacy.',
+      }
+    ],
     content: 'Based on the document analysis, I can identify three main themes: user frustrations with the current system, desire for better automation, and concerns about data privacy.',
     createdAt: new Date('2025-01-15T12:00:30Z'),
   },
@@ -115,6 +129,29 @@ export const createMockFile = (name: string, type: string, size: number = 1024) 
   const file = new File(['test content'], name, { type });
   Object.defineProperty(file, 'size', { value: size });
   return file;
+};
+
+// Export enhanced test utilities
+export { 
+  mockLLMResponses, 
+  llmMockMessages,
+  createMockUseChat,
+  createMockHooks,
+  resetMocks 
+};
+
+// Enhanced render function with better provider setup
+export const renderWithMocks = (
+  ui: React.ReactElement,
+  options?: {
+    useChatOverrides?: Parameters<typeof createMockUseChat>[0];
+    hookOverrides?: Partial<ReturnType<typeof createMockHooks>>;
+  } & Omit<RenderOptions, 'wrapper'>
+) => {
+  // Reset mocks before each render
+  resetMocks();
+  
+  return render(ui, { wrapper: TestWrapper, ...options });
 };
 
 // Re-export everything from testing library

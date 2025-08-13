@@ -6,6 +6,11 @@ export default defineConfig({
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./tests/setup.ts'],
+    exclude: [
+      '**/node_modules/**',
+      '**/ai-chatbot/**', // Exclude ai-chatbot directory from tests
+      '**/.{idea,git,cache,output,temp}/**',
+    ],
     coverage: {
       reporter: ['text', 'json', 'html'],
       exclude: [
@@ -14,6 +19,7 @@ export default defineConfig({
         '*.config.*',
         'scripts/',
         '.next/',
+        'ai-chatbot/', // Exclude from coverage
       ],
     },
   },

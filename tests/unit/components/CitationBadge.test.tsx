@@ -129,7 +129,7 @@ describe('CitationBadge', () => {
 
     const badge = screen.getByText('[1]');
     expect(badge.className).toContain('cursor-pointer');
-    expect(badge.className).toContain('hover:bg-primary');
+    expect(badge.className).toContain('hover:bg-citation');
   });
 
   it('should handle citations with different page numbers', () => {
@@ -249,6 +249,6 @@ describe('CitationBadge', () => {
     
     // Core styling should remain consistent
     expect(newBadge.className).toContain('cursor-pointer');
-    expect(newBadge.className).toContain('hover:bg-primary');
+    expect(newBadge.className).toContain('hover:bg-citation');
   });
 });

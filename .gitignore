@@ -44,5 +44,5 @@ next-env.d.ts
 /dev-uploads/
 
 # ai-chatbot reference folder
-/ai-chatbot/
+# /ai-chatbot/
 
