@@ -12,8 +12,69 @@ import {
 import { 
   createSearchTools
 } from '@/lib/llm-tools/search-tools';
+
+// Types for tool call persistence
+interface AISDKv5MessagePart {
+  type: string;
+  text?: string;
+  toolCallId?: string;
+  state?: 'input-available' | 'output-available';
+  input?: Record<string, unknown>;
+  output?: string | object;
+}
+
+interface PersistedToolCall {
+  toolCallId: string;
+  toolName: string;
+  state: 'input-available' | 'output-available';
+  input?: Record<string, unknown>;
+  output?: string;
+  timestamp: number;
+  query?: string;
+  resultCount?: number;
+}
 import { buildStudyContext } from '@/lib/metadata-context';
 import { getCachedData, studyContextKey } from '@/lib/metadata-cache';
+
+// Tool call extraction function
+function extractToolCallsFromParts(parts: AISDKv5MessagePart[]): PersistedToolCall[] {
+  if (!parts || !Array.isArray(parts)) return [];
+
+  const toolCalls: PersistedToolCall[] = [];
+  const processedToolIds = new Set<string>();
+  
+  // Extract completed tool calls only (output-available state)
+  parts
+    .filter(part => part.type?.startsWith('tool-') && part.state === 'output-available')
+    .forEach(part => {
+      if (!part.toolCallId || processedToolIds.has(part.toolCallId)) return;
+      
+      const toolName = part.type.substring(5); // Remove "tool-" prefix
+      const query = part.input?.query as string;
+      
+      // Extract result count from output string pattern
+      let resultCount: number | undefined;
+      if (typeof part.output === 'string') {
+        const match = part.output.match(/Found (\d+) relevant passages?/i);
+        if (match) resultCount = parseInt(match[1], 10);
+      }
+      
+      toolCalls.push({
+        toolCallId: part.toolCallId,
+        toolName,
+        state: part.state!,
+        input: part.input || {},
+        output: typeof part.output === 'string' ? part.output : JSON.stringify(part.output || ''),
+        timestamp: Date.now(),
+        query: query || undefined,
+        resultCount: resultCount || undefined
+      });
+      
+      processedToolIds.add(part.toolCallId);
+    });
+    
+  return toolCalls;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -333,31 +394,37 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
         },
         generateId: () => `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`, // Simple ID generator
         onFinish: async ({ messages }) => {
-          // Save all assistant messages to database (server-side persistence)
+          // Save all assistant messages to database with tool call persistence
           try {
             for (const msg of messages) {
               if (msg.role === 'assistant') {
-                // Extract content from parts structure
-                const content = msg.parts
-                  ?.filter(part => part.type === 'text')
-                  .map(part => part.text)
-                  .join('') || '';
-
-                if (content.trim()) {
-                  await prisma.chatMessage.create({
-                    data: {
-                      role: 'ASSISTANT',
-                      content: content.trim(),
-                      chatId: chatId,
-                      studyId: studyId,
-                    },
-                  });
-                  console.log('Server-side: Saved assistant message');
-                }
+                const messageParts = (msg as unknown as { parts?: AISDKv5MessagePart[] }).parts;
+                if (!messageParts?.length) continue;
+                
+                const toolCalls = extractToolCallsFromParts(messageParts);
+                const textContent = messageParts
+                  .filter(part => part.type === 'text' && part.text)
+                  .map(part => part.text!)
+                  .join('').trim();
+                
+                if (!textContent && !toolCalls.length) continue;
+                
+                await prisma.chatMessage.create({
+                  data: {
+                    role: 'ASSISTANT',
+                    content: textContent,
+                    toolCalls: toolCalls.length > 0 ? JSON.parse(JSON.stringify(toolCalls)) : undefined,
+                    messageParts: JSON.parse(JSON.stringify(messageParts)), // Full backup for debugging
+                    chatId: chatId,
+                    studyId: studyId,
+                  },
+                });
+                console.log('Server-side: Saved assistant message with tool calls:', toolCalls.length);
               }
             }
           } catch (error) {
-            console.error('Server-side: Failed to save assistant messages:', error);
+            console.error('Server-side: Tool call persistence failed:', error);
+            // Non-blocking - chat continues even if persistence fails
           }
         },
         onError: () => {

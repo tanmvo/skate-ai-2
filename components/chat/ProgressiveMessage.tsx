@@ -106,10 +106,13 @@ export function ProgressiveMessage({
               return null;
             }
             
-            // Extract data from the matching tool
+            // Extract data from the matching tool and part state
             const searchQuery = matchingTool.query || '';
             const resultCount = matchingTool.resultCount;
-            const isActive = matchingTool.isActive;
+            const partState = (part as { state?: 'input-available' | 'output-available' }).state;
+            
+            // Tools are only active during live streaming, not for historical messages
+            const isActive = matchingTool.isActive && partState === 'input-available';
             
             return (
               <motion.div
@@ -133,7 +136,7 @@ export function ProgressiveMessage({
                             {searchQuery && `: "${searchQuery}"`}
                           </span>
                         </>
-                      ) : matchingTool.state === 'output-available' ? (
+                      ) : partState === 'output-available' ? (
                         <>
                           <div className="w-3 h-3 rounded-full bg-analysis/80 flex items-center justify-center">
                             <div className="w-1.5 h-1.5 bg-white rounded-full"></div>
@@ -239,12 +242,15 @@ function UserMessage({
         <div className="flex gap-4 w-full group-data-[role=user]/message:ml-auto group-data-[role=user]/message:max-w-2xl group-data-[role=user]/message:w-fit">
           <div className="flex flex-col gap-4 w-full">
             <div className="bg-primary text-primary-foreground px-3 py-2 rounded-xl">
-              <MarkdownRenderer content={
-                message.parts
-                  ?.filter(part => part.type === 'text')
-                  .map(part => part.text)
-                  .join('') || ''
-              } />
+              <MarkdownRenderer 
+                className="[&_*]:text-primary-foreground [&_h1]:text-primary-foreground [&_h2]:text-primary-foreground [&_h3]:text-primary-foreground [&_h4]:text-primary-foreground [&_h5]:text-primary-foreground [&_h6]:text-primary-foreground [&_p]:text-primary-foreground [&_li]:text-primary-foreground [&_code]:text-primary-foreground [&_strong]:text-primary-foreground [&_em]:text-primary-foreground"
+                content={
+                  message.parts
+                    ?.filter(part => part.type === 'text')
+                    .map(part => part.text)
+                    .join('') || ''
+                } 
+              />
             </div>
 
             {persistenceError && (
