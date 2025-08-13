@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { ProgressiveMessage } from '@/components/chat/ProgressiveMessage';
-import { Message } from '@ai-sdk/react';
+import { UIMessage } from '@ai-sdk/react';
 
 const defaultProps = {
   formatTimestamp: (date: Date) => date.toLocaleTimeString(),
@@ -8,47 +8,59 @@ const defaultProps = {
 
 describe('ProgressiveMessage', () => {
   it('should render assistant message content with markdown', () => {
-    const message: Message = {
+    const message: UIMessage = {
       id: 'test-message-1',
       role: 'assistant',
-      content: 'Based on my search of the documents, I found several key themes...',
-      createdAt: new Date('2024-01-01T12:00:00Z'),
+      parts: [
+        {
+          type: 'text',
+          text: 'Based on my search of the documents, I found several key themes...'
+        }
+      ],
     };
 
     render(<ProgressiveMessage {...defaultProps} message={message} />);
     
     // Should show message content
-    expect(screen.getByText(message.content)).toBeInTheDocument();
+    expect(screen.getByText('Based on my search of the documents, I found several key themes...')).toBeInTheDocument();
     
     // Should show bot icon
     expect(screen.getByRole('button')).toBeInTheDocument(); // Copy button
   });
 
   it('should render user message content with markdown', () => {
-    const message: Message = {
+    const message: UIMessage = {
       id: 'user-message-1',
       role: 'user',
-      content: 'What are the main themes in these documents?',
-      createdAt: new Date('2024-01-01T12:00:00Z'),
+      parts: [
+        {
+          type: 'text',
+          text: 'What are the main themes in these documents?'
+        }
+      ],
     };
 
     render(<ProgressiveMessage {...defaultProps} message={message} />);
     
     // Should show user message content
-    expect(screen.getByText(message.content)).toBeInTheDocument();
+    expect(screen.getByText('What are the main themes in these documents?')).toBeInTheDocument();
   });
 
   it('should render markdown formatted content correctly', () => {
-    const message: Message = {
+    const message: UIMessage = {
       id: 'test-markdown',
       role: 'assistant',
-      content: '# Key Findings\n\n- **Point 1**: Important discovery\n- **Point 2**: Another insight\n\nSee the `code example` for details.',
-      createdAt: new Date('2024-01-01T12:00:00Z'),
+      parts: [
+        {
+          type: 'text',
+          text: '# Key Findings\n\n- **Point 1**: Important discovery\n- **Point 2**: Another insight\n\nSee the `code example` for details.'
+        }
+      ],
     };
 
     render(<ProgressiveMessage {...defaultProps} message={message} />);
     
-    // Should render markdown headers
+    // Should render markdown headers (our enhanced typography: H1 is now text-2xl which is 24px)
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Key Findings');
     
     // Should render markdown list
@@ -62,11 +74,15 @@ describe('ProgressiveMessage', () => {
   });
 
   it('should handle persistence errors correctly', () => {
-    const message: Message = {
+    const message: UIMessage = {
       id: 'test-message-1',
       role: 'assistant',
-      content: 'Test content',
-      createdAt: new Date('2024-01-01T12:00:00Z'),
+      parts: [
+        {
+          type: 'text',
+          text: 'Test content'
+        }
+      ],
     };
 
     const mockRetry = vi.fn();
@@ -86,11 +102,15 @@ describe('ProgressiveMessage', () => {
   });
 
   it('should call copy function when copy button is clicked', () => {
-    const message: Message = {
+    const message: UIMessage = {
       id: 'test-message-1',
       role: 'assistant',
-      content: 'Test content',
-      createdAt: new Date('2024-01-01T12:00:00Z'),
+      parts: [
+        {
+          type: 'text',
+          text: 'Test content'
+        }
+      ],
     };
 
     const mockCopy = vi.fn();
@@ -112,48 +132,55 @@ describe('ProgressiveMessage', () => {
     expect(copyButton).toBeInTheDocument();
   });
 
-  it('should format timestamps correctly', () => {
-    const message: Message = {
-      id: 'test-message-1',
-      role: 'assistant',
-      content: 'Test content',
-      createdAt: new Date('2024-01-01T12:00:00Z'),
-    };
+  // Note: Timestamp display removed from ProgressiveMessage - timestamps are handled at chat level
 
-    const customFormatTimestamp = (date: Date) => `Custom: ${date.getHours()}:${date.getMinutes()}`;
-
-    render(
-      <ProgressiveMessage 
-        {...defaultProps}
-        message={message}
-        formatTimestamp={customFormatTimestamp}
-      />
-    );
-    
-    // Check that custom timestamp function is called and rendered
-    expect(screen.getByText(/Custom: \d+:\d+/)).toBeInTheDocument();
-  });
-
-  it('should render AI SDK v4 message parts correctly', () => {
-    const messageWithParts = {
+  it('should render AI SDK v5 message parts correctly', () => {
+    const messageWithParts: UIMessage = {
       id: 'test-parts',
       role: 'assistant',
-      createdAt: new Date('2024-01-01T12:00:00Z'),
       parts: [
         {
           type: 'text',
           text: '## Analysis Results\n\nI found the following insights:\n\n- Key theme 1\n- Key theme 2'
         }
       ]
-    } as any;
+    };
 
     render(<ProgressiveMessage {...defaultProps} message={messageWithParts} />);
     
-    // Should render markdown headers from parts
+    // Should render markdown headers from parts (H2 is now text-xl which is 20px)
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Analysis Results');
     
     // Should render list items
     expect(screen.getByText('Key theme 1')).toBeInTheDocument();
     expect(screen.getByText('Key theme 2')).toBeInTheDocument();
+  });
+
+  it('should render tool calls from reconstructed message parts', () => {
+    const messageWithToolCalls: UIMessage = {
+      id: 'test-tool-calls',
+      role: 'assistant',
+      parts: [
+        {
+          type: 'tool-search_all_documents',
+          toolCallId: 'tool-123',
+          state: 'output-available',
+          input: { query: 'pain points' },
+          output: 'Found 5 relevant passages'
+        },
+        {
+          type: 'text',
+          text: 'Based on the search results, here are the key findings:'
+        }
+      ]
+    };
+
+    render(<ProgressiveMessage {...defaultProps} message={messageWithToolCalls} />);
+    
+    // Should render tool call completion indicator
+    expect(screen.getByText(/Found 5 passage/)).toBeInTheDocument();
+    
+    // Should render text content after tool calls
+    expect(screen.getByText('Based on the search results, here are the key findings:')).toBeInTheDocument();
   });
 });

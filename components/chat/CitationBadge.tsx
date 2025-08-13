@@ -7,13 +7,13 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Citation } from "@/lib/types/citations";
+import { DocumentCitation } from "@/lib/types/citations";
 import { cn } from "@/lib/utils";
 
 interface CitationBadgeProps {
-  citation: Citation;
+  citation: DocumentCitation;
   index: number;
-  onClick?: (citation: Citation) => void;
+  onClick?: (citation: DocumentCitation) => void;
   className?: string;
 }
 
@@ -46,7 +46,7 @@ export function CitationBadge({
           <div className="space-y-2">
             <p className="font-medium text-sm text-document">{citation.documentName}</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {citation.content}
+              {citation.relevantText}
             </p>
             {citation.pageNumber && (
               <p className="text-xs text-document/80 font-mono">

@@ -9,13 +9,13 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown, ChevronRight, Copy, ExternalLink } from "lucide-react";
-import { Citation } from "@/lib/types/citations";
+import { DocumentCitation } from "@/lib/types/citations";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface CitationPanelProps {
-  citations: Citation[];
-  onCitationClick?: (citation: Citation) => void;
+  citations: DocumentCitation[];
+  onCitationClick?: (citation: DocumentCitation) => void;
   className?: string;
 }
 
@@ -35,7 +35,7 @@ export function CitationPanel({
     toast.success("Citation copied to clipboard");
   };
 
-  const handleCitationClick = (citation: Citation) => {
+  const handleCitationClick = (citation: DocumentCitation) => {
     onCitationClick?.(citation);
   };
 
@@ -60,7 +60,7 @@ export function CitationPanel({
           <div className="space-y-2">
             {citations.map((citation, index) => {
               const citationKey = citation.id;
-              const displayText = citation.content;
+              const displayText = citation.relevantText;
                   
               return (
                 <Card key={citationKey} className="bg-muted/20">

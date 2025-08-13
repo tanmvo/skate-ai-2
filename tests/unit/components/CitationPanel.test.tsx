@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { CitationPanel } from '../../../components/chat/CitationPanel';
 import { renderWithProviders } from '../../test-utils';
-import { DocumentCitation } from '../../../lib/schemas/synthesis-schema';
+import { DocumentCitation, Citation } from '../../../lib/schemas/synthesis-schema';
 
 // Mock clipboard API
 Object.assign(navigator, {
@@ -218,7 +218,7 @@ describe('CitationPanel', () => {
       />
     );
 
-    expect(container.firstChild?.className).toContain('custom-citation-panel');
+    expect((container.firstChild as HTMLElement)?.className).toContain('custom-citation-panel');
   });
 
   it('should handle citations with long content', () => {
@@ -322,13 +322,12 @@ describe('CitationPanel', () => {
   });
 
   it('should handle large numbers of citations', () => {
-    const manyCitations: Citation[] = Array.from({ length: 20 }, (_, i) => ({
+    const manyCitations: DocumentCitation[] = Array.from({ length: 20 }, (_, i) => ({
+      id: `doc_${i}-chunk_${i}`,
       documentId: `doc_${i}`,
       documentName: `document-${i}.pdf`,
-      chunkId: `chunk_${i}`,
-      content: `Content from document ${i}`,
-      similarity: 0.9 - (i * 0.01),
-      chunkIndex: i
+      relevantText: `Content from document ${i}`,
+      pageNumber: i + 1
     }));
 
     renderWithProviders(

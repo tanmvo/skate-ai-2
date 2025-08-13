@@ -44,6 +44,7 @@ const mockUseChat = {
   error: null as any,
   reload: vi.fn(),
   data: [] as any[], // Add data for citation streaming
+  onFinish: vi.fn(), // Add onFinish callback
 };
 
 vi.mock('ai/react', () => ({

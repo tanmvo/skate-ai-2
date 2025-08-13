@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 describe('File Storage Comprehensive Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = 'test';
+    vi.stubEnv('NODE_ENV', 'test');
     delete process.env.BLOB_READ_WRITE_TOKEN;
   });
 
@@ -144,28 +144,28 @@ describe('File Storage Comprehensive Tests', () => {
     };
 
     it('uses filesystem in development without blob token', () => {
-      process.env.NODE_ENV = 'development';
+      vi.stubEnv('NODE_ENV', 'development');
       delete process.env.BLOB_READ_WRITE_TOKEN;
       
       expect(getDefaultStorageType()).toBe('filesystem');
     });
 
     it('uses filesystem in production without blob token', () => {
-      process.env.NODE_ENV = 'production';
+      vi.stubEnv('NODE_ENV', 'production');
       delete process.env.BLOB_READ_WRITE_TOKEN;
       
       expect(getDefaultStorageType()).toBe('filesystem');
     });
 
     it('uses vercel-blob in production with blob token', () => {
-      process.env.NODE_ENV = 'production';
+      vi.stubEnv('NODE_ENV', 'production');
       process.env.BLOB_READ_WRITE_TOKEN = 'test-token';
       
       expect(getDefaultStorageType()).toBe('vercel-blob');
     });
 
     it('uses filesystem in development even with blob token', () => {
-      process.env.NODE_ENV = 'development';
+      vi.stubEnv('NODE_ENV', 'development');
       process.env.BLOB_READ_WRITE_TOKEN = 'test-token';
       
       expect(getDefaultStorageType()).toBe('filesystem');
@@ -224,21 +224,21 @@ describe('File Storage Comprehensive Tests', () => {
 
     it('prevents execution in production environment', () => {
       const originalEnv = process.env.NODE_ENV;
-      process.env.NODE_ENV = 'production';
+      vi.stubEnv('NODE_ENV', 'production');
       
       expect(() => checkProductionSafety()).toThrow('disabled in production for safety');
       
-      process.env.NODE_ENV = originalEnv;
+      vi.stubEnv('NODE_ENV', originalEnv || 'test');
     });
 
     it('allows execution in development environment', () => {
-      process.env.NODE_ENV = 'development';
+      vi.stubEnv('NODE_ENV', 'development');
       
       expect(checkProductionSafety()).toBe(true);
     });
 
     it('allows execution in test environment', () => {
-      process.env.NODE_ENV = 'test';
+      vi.stubEnv('NODE_ENV', 'test');
       
       expect(checkProductionSafety()).toBe(true);
     });

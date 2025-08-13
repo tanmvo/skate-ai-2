@@ -14,12 +14,15 @@ describe('Citation Streaming Logic', () => {
       };
 
       const formatCitation = (chunk: typeof mockChunk): Citation => ({
+        id: `${chunk.documentId}-${chunk.chunkId}`,
         documentId: chunk.documentId,
         documentName: chunk.documentName,
         chunkId: chunk.chunkId,
         content: chunk.content.slice(0, 200) + (chunk.content.length > 200 ? '...' : ''),
         similarity: chunk.similarity,
         chunkIndex: chunk.chunkIndex,
+        confidence: chunk.similarity,
+        timestamp: Date.now(),
       });
 
       const result = formatCitation(mockChunk);
@@ -44,12 +47,15 @@ describe('Citation Streaming Logic', () => {
       };
 
       const formatCitation = (chunk: typeof mockChunk): Citation => ({
+        id: `${chunk.documentId}-${chunk.chunkId}`,
         documentId: chunk.documentId,
         documentName: chunk.documentName,
         chunkId: chunk.chunkId,
         content: chunk.content.slice(0, 200) + (chunk.content.length > 200 ? '...' : ''),
         similarity: chunk.similarity,
         chunkIndex: chunk.chunkIndex,
+        confidence: chunk.similarity,
+        timestamp: Date.now(),
       });
 
       const result = formatCitation(mockChunk);
@@ -106,12 +112,15 @@ describe('Citation Streaming Logic', () => {
     it('should create proper stream data format', () => {
       const citations: Citation[] = [
         {
+          id: 'doc_1-chunk_1',
           documentId: 'doc_1',
           documentName: 'document1.pdf',
           chunkId: 'chunk_1',
           content: 'Content 1',
           similarity: 0.9,
-          chunkIndex: 0
+          chunkIndex: 0,
+          confidence: 0.9,
+          timestamp: Date.now()
         }
       ];
 
@@ -132,12 +141,15 @@ describe('Citation Streaming Logic', () => {
         { type: 'other', data: 'some data' },
         { type: 'citations', citations: [
           {
+            id: 'doc_1-chunk_1',
             documentId: 'doc_1',
             documentName: 'test.pdf',
             chunkId: 'chunk_1',
             content: 'Test content',
             similarity: 0.8,
-            chunkIndex: 0
+            chunkIndex: 0,
+            confidence: 0.8,
+            timestamp: Date.now()
           }
         ]},
         { type: 'more_data', value: 'other value' }
@@ -203,10 +215,10 @@ describe('Citation Streaming Logic', () => {
       // Mixed valid/invalid citations should filter correctly
       const mixedData = {
         citations: [
-          { documentId: 'doc1', documentName: 'test.pdf', chunkId: 'chunk1', content: 'content', similarity: 0.8, chunkIndex: 0 },
+          { id: 'doc1-chunk1', documentId: 'doc1', documentName: 'test.pdf', chunkId: 'chunk1', content: 'content', similarity: 0.8, chunkIndex: 0, confidence: 0.8, timestamp: Date.now() },
           { documentId: 'doc2' }, // incomplete
           null, // null entry
-          { documentId: 'doc3', documentName: 'test2.pdf', chunkId: 'chunk3', content: 'content2', similarity: 0.7, chunkIndex: 1 }
+          { id: 'doc3-chunk3', documentId: 'doc3', documentName: 'test2.pdf', chunkId: 'chunk3', content: 'content2', similarity: 0.7, chunkIndex: 1, confidence: 0.7, timestamp: Date.now() }
         ]
       };
       
@@ -246,12 +258,15 @@ describe('Citation Streaming Logic', () => {
     it('should handle large numbers of citations', () => {
       const generateMockCitations = (count: number): Citation[] => {
         return Array.from({ length: count }, (_, i) => ({
+          id: `doc_${i}-chunk_${i}`,
           documentId: `doc_${i}`,
           documentName: `document_${i}.pdf`,
           chunkId: `chunk_${i}`,
           content: `Content for chunk ${i}`,
           similarity: 0.8 - (i * 0.01), // Decreasing similarity
-          chunkIndex: i
+          chunkIndex: i,
+          confidence: 0.8 - (i * 0.01),
+          timestamp: Date.now()
         }));
       };
 
@@ -266,12 +281,15 @@ describe('Citation Streaming Logic', () => {
 
     it('should handle citations with special characters', () => {
       const specialCharCitation: Citation = {
+        id: 'doc_special_chars-chunk_with_special_chars',
         documentId: 'doc_special_chars',
         documentName: 'document with spaces & special chars (1).pdf',
         chunkId: 'chunk_with_special_chars',
         content: 'Content with "quotes", emojis 🔥, and other characters: @#$%^&*()',
         similarity: 0.85,
-        chunkIndex: 0
+        chunkIndex: 0,
+        confidence: 0.85,
+        timestamp: Date.now()
       };
 
       // Should handle special characters without issues
@@ -285,20 +303,26 @@ describe('Citation Streaming Logic', () => {
     it('should handle empty document names and content', () => {
       const edgeCaseCitations: Citation[] = [
         {
+          id: 'doc_empty_name-chunk_1',
           documentId: 'doc_empty_name',
           documentName: '',
           chunkId: 'chunk_1',
           content: 'Some content',
           similarity: 0.7,
-          chunkIndex: 0
+          chunkIndex: 0,
+          confidence: 0.7,
+          timestamp: Date.now()
         },
         {
+          id: 'doc_empty_content-chunk_2',
           documentId: 'doc_empty_content',
           documentName: 'document.pdf',
           chunkId: 'chunk_2',
           content: '',
           similarity: 0.6,
-          chunkIndex: 1
+          chunkIndex: 1,
+          confidence: 0.6,
+          timestamp: Date.now()
         }
       ];
 
@@ -311,20 +335,26 @@ describe('Citation Streaming Logic', () => {
     it('should handle zero and negative similarity scores', () => {
       const similarityEdgeCases: Citation[] = [
         {
+          id: 'doc_zero_sim-chunk_zero',
           documentId: 'doc_zero_sim',
           documentName: 'zero_similarity.pdf',
           chunkId: 'chunk_zero',
           content: 'Zero similarity content',
           similarity: 0,
-          chunkIndex: 0
+          chunkIndex: 0,
+          confidence: 0,
+          timestamp: Date.now()
         },
         {
+          id: 'doc_negative_sim-chunk_negative',
           documentId: 'doc_negative_sim',
           documentName: 'negative_similarity.pdf',
           chunkId: 'chunk_negative',
           content: 'Negative similarity content',
           similarity: -0.1,
-          chunkIndex: 1
+          chunkIndex: 1,
+          confidence: -0.1,
+          timestamp: Date.now()
         }
       ];
 

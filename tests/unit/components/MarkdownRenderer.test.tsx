@@ -7,13 +7,21 @@ describe('MarkdownRenderer', () => {
     expect(screen.getByText('Hello world')).toBeInTheDocument();
   });
 
-  it('should render markdown headers correctly', () => {
-    const content = '# Header 1\n## Header 2\n### Header 3';
+  it('should render markdown headers correctly with enhanced typography', () => {
+    const content = '# Header 1\n## Header 2\n### Header 3\n#### Header 4\n##### Header 5\n###### Header 6';
     render(<MarkdownRenderer content={content} />);
     
+    // Test all 6 header levels (enhanced from original 3)
     expect(screen.getByRole('heading', { level: 1 })).toHaveTextContent('Header 1');
     expect(screen.getByRole('heading', { level: 2 })).toHaveTextContent('Header 2');
     expect(screen.getByRole('heading', { level: 3 })).toHaveTextContent('Header 3');
+    expect(screen.getByRole('heading', { level: 4 })).toHaveTextContent('Header 4');
+    expect(screen.getByRole('heading', { level: 5 })).toHaveTextContent('Header 5');
+    expect(screen.getByRole('heading', { level: 6 })).toHaveTextContent('Header 6');
+    
+    // Test enhanced typography classes are applied
+    const h1 = screen.getByRole('heading', { level: 1 });
+    expect(h1).toHaveClass('text-2xl'); // Enhanced from text-lg
   });
 
   it('should render markdown lists correctly', () => {
@@ -47,12 +55,29 @@ describe('MarkdownRenderer', () => {
     expect(codeElement.tagName).toBe('CODE');
   });
 
-  it('should render code blocks correctly', () => {
+  it('should render code blocks correctly with enhanced CodeBlock component', () => {
     const content = '```javascript\nconst hello = "world";\nconsole.log(hello);\n```';
     render(<MarkdownRenderer content={content} />);
     
-    const preElement = screen.getByText(/const hello = "world"/);
-    expect(preElement.closest('pre')).toBeInTheDocument();
+    const codeElement = screen.getByText(/const hello = "world"/);
+    expect(codeElement.closest('pre')).toBeInTheDocument();
+    
+    // Test enhanced styling
+    const preElement = codeElement.closest('pre');
+    expect(preElement).toHaveClass('rounded-xl'); // Enhanced from rounded-lg
+    expect(preElement).toHaveClass('bg-muted'); // Design token usage
+  });
+
+  it('should render inline code correctly with enhanced styling', () => {
+    const content = 'Use the `console.log()` function to debug.';
+    render(<MarkdownRenderer content={content} />);
+    
+    // Test that inline code is rendered correctly - it should exist
+    const codeElement = screen.getByText('console.log()');
+    expect(codeElement.tagName).toBe('CODE');
+    
+    // Note: The exact styling classes depend on react-markdown's inline detection
+    // The important thing is that the CodeBlock component is used for code rendering
   });
 
   it('should render links correctly', () => {
@@ -77,12 +102,15 @@ describe('MarkdownRenderer', () => {
     expect(bold.tagName).toBe('STRONG');
   });
 
-  it('should render blockquotes correctly', () => {
+  it('should render blockquotes correctly with enhanced styling', () => {
     const content = '> This is a blockquote\n> with multiple lines';
     render(<MarkdownRenderer content={content} />);
     
     const blockquote = screen.getByText(/This is a blockquote/).closest('blockquote');
     expect(blockquote).toBeInTheDocument();
+    expect(blockquote).toHaveClass('border-primary/20'); // Enhanced color
+    expect(blockquote).toHaveClass('bg-muted/30'); // Enhanced background
+    expect(blockquote).toHaveClass('rounded-r-md'); // Enhanced styling
   });
 
   it('should render tables correctly', () => {

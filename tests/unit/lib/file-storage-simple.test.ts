@@ -4,7 +4,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 describe('File Storage Simple Tests', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    process.env.NODE_ENV = 'test';
+    vi.stubEnv('NODE_ENV', 'test');
     delete process.env.BLOB_READ_WRITE_TOKEN;
   });
 
@@ -89,7 +89,7 @@ describe('File Storage Simple Tests', () => {
     const originalEnv = process.env.NODE_ENV;
     
     // Test production with token
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     process.env.BLOB_READ_WRITE_TOKEN = 'test-token';
     
     const determineStorageType = (headers: Record<string, string>) => {
@@ -106,7 +106,7 @@ describe('File Storage Simple Tests', () => {
     expect(determineStorageType({})).toBe('filesystem');
     
     // Restore environment
-    process.env.NODE_ENV = originalEnv;
+    vi.stubEnv('NODE_ENV', originalEnv || 'test');
   });
 
   it('should validate user scoping safety', () => {
@@ -128,7 +128,7 @@ describe('File Storage Simple Tests', () => {
 
   it('should prevent execution in production', () => {
     const originalEnv = process.env.NODE_ENV;
-    process.env.NODE_ENV = 'production';
+    vi.stubEnv('NODE_ENV', 'production');
     
     const checkProductionSafety = () => {
       if (process.env.NODE_ENV === 'production') {
@@ -140,10 +140,10 @@ describe('File Storage Simple Tests', () => {
     expect(() => checkProductionSafety()).toThrow('disabled in production');
     
     // Test development allows execution
-    process.env.NODE_ENV = 'development';
+    vi.stubEnv('NODE_ENV', 'development');
     expect(checkProductionSafety()).toBe(true);
     
     // Restore environment
-    process.env.NODE_ENV = originalEnv;
+    vi.stubEnv('NODE_ENV', originalEnv || 'test');
   });
 });

@@ -40,17 +40,31 @@ interface PersistedToolCall {
 // Message parts reconstruction function
 export function reconstructMessageParts(
   content: string, 
-  toolCalls: PersistedToolCall[] | null
+  toolCalls: PersistedToolCall[] | null,
+  originalParts: AISDKv5MessagePart[] | null
 ): AISDKv5MessagePart[] {
+  // If we have original parts, use them but fix the state for tool calls
+  if (originalParts && Array.isArray(originalParts) && originalParts.length > 0) {
+    return originalParts.map(part => {
+      // For tool parts, ensure they show as completed for historical messages
+      if (part.type?.startsWith('tool-') && part.toolCallId) {
+        return {
+          ...part,
+          state: 'output-available' // Always completed for historical messages
+        };
+      }
+      return part;
+    });
+  }
+  
+  // Fallback: reconstruct from tool calls if original parts not available
   const parts: AISDKv5MessagePart[] = [];
   
-  // Reconstruct tool call parts in chronological order (ONLY completed ones)
+  // Add tool call parts in chronological order (ONLY completed ones)
   if (toolCalls?.length) {
     const sortedToolCalls = [...toolCalls].sort((a, b) => a.timestamp - b.timestamp);
     
     sortedToolCalls.forEach(tool => {
-      // Only add output-available parts for completed tool calls
-      // This prevents showing loading states for historical messages
       parts.push({
         type: `tool-${tool.toolName}`,
         toolCallId: tool.toolCallId,
@@ -83,7 +97,7 @@ async function fetchMessages(studyId: string, chatId: string): Promise<AISDKMess
     id: msg.id,
     role: msg.role.toLowerCase() as 'user' | 'assistant',
     parts: msg.role === 'ASSISTANT' && (msg.toolCalls || msg.messageParts) 
-      ? reconstructMessageParts(msg.content, msg.toolCalls || null)
+      ? reconstructMessageParts(msg.content, msg.toolCalls || null, msg.messageParts || null)
       : [{ type: 'text', text: msg.content }],
     createdAt: new Date(msg.timestamp),
   })) as AISDKMessage[];

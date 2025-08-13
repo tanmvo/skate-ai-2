@@ -11,9 +11,12 @@ export interface Citation {
   pageNumber?: number;
   confidence: number;
   timestamp: number;
+  chunkId: string;
+  similarity: number;
 }
 
 export interface DocumentCitation {
+  id?: string;
   documentId: string;
   documentName: string;
   relevantText: string;

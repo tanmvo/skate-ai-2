@@ -341,7 +341,7 @@ describe('Citation Streaming API Integration', () => {
             if (relevantChunks.length > 0) {
               // Filter out malformed entries
               const validCitations = relevantChunks
-                .filter(chunk => chunk && chunk.documentId && chunk.documentName && chunk.chunkId)
+                .filter((chunk: any) => chunk && chunk.documentId && chunk.documentName && chunk.chunkId)
                 .map((chunk: any) => ({
                   documentId: chunk.documentId,
                   documentName: chunk.documentName,

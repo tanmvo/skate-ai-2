@@ -55,7 +55,7 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
           ];
           
           return validTypes.includes(itemType);
-        } catch (error) {
+        } catch {
           // Gracefully handle any unexpected errors in type checking
           return false;
         }
@@ -145,7 +145,7 @@ export function useToolCallData(dataStream: unknown[] | undefined, messageId: st
             timestamp: typeof item.timestamp === 'number' ? item.timestamp : Date.now(),
             success: typeof item.success === 'boolean' ? item.success : undefined,
           };
-        } catch (error) {
+        } catch {
           return {
             type: 'tool-call-end', // Safe fallback
             toolName: 'unknown',

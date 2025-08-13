@@ -187,7 +187,7 @@ describe('Dashboard Navigation Flow', () => {
     renderWithProviders(<StudiesPage />);
 
     // Should show loading skeleton cards
-    const skeletonCards = screen.getAllByTestId ? screen.queryAllByTestId('skeleton-card') : [];
+    const skeletonCards = screen.queryAllByTestId('skeleton-card');
     // Fallback to checking for animate-pulse class
     const animatedElements = document.querySelectorAll('.animate-pulse');
     

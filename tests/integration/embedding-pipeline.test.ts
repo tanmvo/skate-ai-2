@@ -4,10 +4,13 @@ import { chunkText } from '@/lib/document-chunking';
 import { generateBatchEmbeddings, serializeEmbedding, deserializeEmbedding } from '@/lib/voyage-embeddings';
 import { findRelevantChunks, cosineSimilarity } from '@/lib/vector-search';
 
+// Create mock function first
+const mockEmbed = vi.fn();
+
 // Mock external dependencies
 vi.mock('voyageai', () => ({
   VoyageAIClient: vi.fn().mockImplementation(() => ({
-    embed: vi.fn(),
+    embed: mockEmbed,
   })),
 }));
 
@@ -92,12 +95,11 @@ describe('Embedding Pipeline Integration Tests', () => {
 
       // Step 4: Mock embedding generation
       const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
-      const mockVoyageClient = new VoyageAIClient();
       const mockEmbeddings = chunks.map((_, index) => 
         Array.from({ length: 1536 }, (_, i) => Math.sin((index + 1) * i / 100))
       );
 
-      mockVoyageClient.embed.mockResolvedValue({
+      mockEmbed.mockResolvedValue({
         data: mockEmbeddings.map(embedding => ({ embedding })),
         usage: { total_tokens: chunks.length * 50 },
       });
@@ -218,8 +220,7 @@ describe('Embedding Pipeline Integration Tests', () => {
       ];
 
       const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
-      const mockVoyageClient = new VoyageAIClient();
-      mockVoyageClient.embed.mockResolvedValue({
+      mockEmbed.mockResolvedValue({
         data: [{ embedding: queryEmbedding }],
       });
 
@@ -283,8 +284,7 @@ describe('Embedding Pipeline Integration Tests', () => {
       const chunkEmbedding = [0.9, 0.1, 0];
 
       const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
-      const mockVoyageClient = new VoyageAIClient();
-      mockVoyageClient.embed.mockResolvedValue({
+      mockEmbed.mockResolvedValue({
         data: [{ embedding: queryEmbedding }],
       });
 
@@ -359,8 +359,7 @@ describe('Embedding Pipeline Integration Tests', () => {
 
     it('should handle embedding generation failures', async () => {
       const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
-      const mockVoyageClient = new VoyageAIClient();
-      mockVoyageClient.embed.mockRejectedValue(new Error('API quota exceeded'));
+      mockEmbed.mockRejectedValue(new Error('API quota exceeded'));
 
       await expect(generateBatchEmbeddings(['test text'])).rejects.toThrow(
         'Batch embedding generation failed: API quota exceeded'
@@ -379,8 +378,7 @@ describe('Embedding Pipeline Integration Tests', () => {
       mockPrisma.documentChunk.findMany.mockResolvedValue([]);
 
       const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
-      const mockVoyageClient = new VoyageAIClient();
-      mockVoyageClient.embed.mockResolvedValue({
+      mockEmbed.mockResolvedValue({
         data: [{ embedding: [0.1, 0.2, 0.3] }],
       });
 
@@ -397,12 +395,11 @@ describe('Embedding Pipeline Integration Tests', () => {
       );
 
       const { VoyageAIClient } = await vi.importMock<typeof import('voyageai')>('voyageai');
-      const mockVoyageClient = new VoyageAIClient();
       
       // Mock the API to handle batches
-      mockVoyageClient.embed.mockImplementation(({ input }) => ({
-        data: input.map((_, index) => ({ 
-          embedding: Array.from({ length: 10 }, (_, i) => (index + 1) * i / 100) 
+      mockEmbed.mockImplementation(({ input }: { input: string[] }) => ({
+        data: input.map((_: string, index: number) => ({ 
+          embedding: Array.from({ length: 10 }, (_: any, i: number) => (index + 1) * i / 100) 
         })),
         usage: { total_tokens: input.length * 20 },
       }));
@@ -413,7 +410,7 @@ describe('Embedding Pipeline Integration Tests', () => {
       expect(result.usage.totalTokens).toBeGreaterThan(0);
       
       // Should have made multiple API calls due to batch size limits
-      expect(mockVoyageClient.embed).toHaveBeenCalledTimes(2); // 128 + 72
+      expect(mockEmbed).toHaveBeenCalledTimes(2); // 128 + 72
     });
 
     it('should maintain embedding quality through serialization', () => {

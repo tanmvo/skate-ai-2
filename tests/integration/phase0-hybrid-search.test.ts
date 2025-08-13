@@ -111,7 +111,7 @@ describe('Phase 0: Hybrid Search Foundation', () => {
       expect(finalStats.misses).toBe(1);
     });
 
-    it('should handle TTL expiration', (done) => {
+    it('should handle TTL expiration', async () => {
       const testKey = 'ttl_test';
       const testData = { value: 'expires_soon' };
       const shortTTL = 50; // 50ms
@@ -122,10 +122,8 @@ describe('Phase 0: Hybrid Search Foundation', () => {
       expect(metadataCache.get(testKey)).toEqual(testData);
       
       // Should expire after TTL
-      setTimeout(() => {
-        expect(metadataCache.get(testKey)).toBeNull();
-        done();
-      }, 100);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      expect(metadataCache.get(testKey)).toBeNull();
     });
 
     it('should clear cache when requested', () => {
