@@ -22,7 +22,8 @@
       "WebFetch(domain:api.github.com)",
       "Bash(node:*)",
       "Bash(npm:*)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "WebSearch"
     ],
     "deny": []
   }

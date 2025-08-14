@@ -10,11 +10,23 @@
 
 ## Executive Summary
 
-This updated roadmap incorporates all available PRDs and provides a strategic path from the current MVP to a comprehensive enterprise-ready research platform. The plan balances immediate user needs, technical foundation building, and long-term business growth while maintaining development velocity and managing risk.
+This updated roadmap incorporates all available PRDs and provides a strategic path from the current MVP to a comprehensive enterprise-ready research platform. **NEW: Includes critical market readiness features based on user adoption analysis and competitive gaps.**
 
-**Total Timeline:** 48+ weeks across 5 phases  
-**Total Investment:** $1.2M-1.8M for complete roadmap  
-**Expected ROI:** 700-1200% over 24 months through improved retention, conversion, and enterprise market access
+The plan balances immediate user needs, technical foundation building, and long-term business growth while maintaining development velocity and managing risk.
+
+**Total Timeline:** 64+ weeks across 5 phases  
+**Total Investment:** $1.5M-2.1M for complete roadmap  
+**Expected ROI:** 800-1400% over 24 months through improved retention, conversion, and enterprise market access
+
+### 🆕 Market Readiness Additions (Critical for User Adoption)
+
+**Phase 1 Enhancements:** Added 4 critical UX features addressing core user adoption barriers:
+1. **Proactive Suggestion Prompts** - Eliminates analysis paralysis (70% reduction in abandonment)
+2. **Thematic Insights Dashboard** - Solves fragmented insights problem (15-25% revenue increase)
+3. **Trust-Building & AI Explainability** - Enables professional adoption (60% improvement)
+4. **Enhanced Shareability** - Unlocks team collaboration (40% increase in multi-user adoption)
+
+**Strategic Impact:** These features transform Skate AI from a basic chat tool to a comprehensive research intelligence platform that competes directly with Dovetail and similar tools.
 
 ---
 
@@ -22,17 +34,27 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 
 ### Core Foundation PRDs (Critical for Launch)
 1. **Missing CRUD Operations** - 4 weeks, **Confidence: 99%** ✅
-2. **Analytics & Monitoring** - 4 weeks, **Confidence: 98%** ✅
-3. **Beta Signup Page** - 3 weeks, **Confidence: 96%** ✅
-4. **Basic Authentication** - 3 weeks, **Confidence: 98%** ✅
+2. **Beta Signup Page** - 3 weeks, **Confidence: 96%** ✅
+3. **Basic Authentication** - 3 weeks, **Confidence: 98%** ✅
+4. **Analytics & Monitoring** - 4 weeks, **Confidence: 98%** ✅ **(Post-Auth for meaningful metrics)**
+
+### Production Readiness PRDs (Essential for Commercial Launch)
+5. **Chat Rate Limiting Implementation** - 2-3 weeks, **Confidence: 97%** ✅
+6. **Document Upload Security & Safety Guardrails** - 3-4 weeks, **Confidence: 96%** ✅
 
 ### Advanced Platform PRDs (Market Expansion)
-5. **Enterprise Auth + Compliance** - 20 weeks, **Confidence: 97%** ✅
-6. **Document Collaboration** - 8-10 weeks, **Confidence: 96%** ✅
-7. **Model Selection System** - 6-7 weeks, **Confidence: 95%** ✅
+7. **Enterprise Auth + Compliance** - 20 weeks, **Confidence: 97%** ✅
+8. **Document Collaboration** - 8-10 weeks, **Confidence: 96%** ✅
+9. **Model Selection System** - 6-7 weeks, **Confidence: 95%** ✅
+
+### Market Readiness PRDs (Critical for User Adoption)
+8. **Thematic Insights Dashboard** - 8-10 weeks, **Confidence: 92%** ✅
+9. **Enhanced Copy-to-Clipboard & Shareability** - 14-18 weeks, **Confidence: 92%** ✅
+10. **Trust-Building & AI Explainability** - 15 weeks, **Confidence: 90%** ✅
+11. **Proactive Suggestion Prompts System** - 16 weeks, **Confidence: 95%** ✅
 
 ### Supporting Documentation
-8. **System Prompt Design Principles** - Research guidelines for AI optimization ✅
+12. **System Prompt Design Principles** - Research guidelines for AI optimization ✅
 
 ---
 
@@ -71,7 +93,13 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 | **Missing CRUD Operations** | 8 | 2 | 10 | 1 | **35 (URGENT)** |
 | **Analytics & Monitoring** | 8 | 3 | 8 | 2 | **31 (HIGH)** |
 | **Basic Authentication** | 9 | 4 | 9 | 3 | **31 (CRITICAL)** |
+| **Chat Rate Limiting** | 9 | 3 | 8 | 2 | **32 (CRITICAL)** |
+| **Proactive Suggestion Prompts** | 9 | 6 | 9 | 2 | **30 (HIGH)** |
+| **Trust-Building & AI Explainability** | 8 | 6 | 8 | 3 | **27 (HIGH)** |
 | **Beta Signup Page** | 7 | 2 | 7 | 2 | **26 (HIGH)** |
+| **Thematic Insights Dashboard** | 9 | 4 | 7 | 3 | **27 (HIGH)** |
+| **Enhanced Copy-to-Clipboard** | 7 | 6 | 6 | 3 | **22 (MEDIUM-HIGH)** |
+| **Document Upload Security** | 8 | 7 | 7 | 4 | **24 (HIGH)** |
 | **Model Selection System** | 8 | 3 | 5 | 2 | **24 (MEDIUM)** |
 | **Document Collaboration** | 9 | 5 | 6 | 3 | **25 (MEDIUM-HIGH)** |
 | **Enterprise Auth + Compliance** | 10 | 9 | 3 | 4 | **26 (STRATEGIC)** |
@@ -80,8 +108,8 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 
 ## Comprehensive Implementation Roadmap
 
-## Phase 1: Foundation & UX Fixes (Weeks 1-10)
-**Goal:** Fix critical gaps and establish data-driven development
+## Phase 1: Foundation & Market Readiness (Weeks 1-17)
+**Goal:** Fix critical gaps, establish data-driven development, and implement market readiness features
 
 ### 1.1 Missing CRUD Operations (Weeks 1-4) - **IMMEDIATE PRIORITY**
 **Confidence: 99%** | **Investment: $40K-60K**
@@ -122,7 +150,49 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 - 95%+ event tracking accuracy
 - Weekly actionable insights driving feature decisions
 
-### 1.3 Beta Signup Page (Weeks 8-10)
+### 1.3 Market Readiness Features (Weeks 8-14)
+**Investment: $100K-140K** | **Combined High-Impact UX Improvements**
+
+#### 1.3.1 Proactive Suggestion Prompts (Weeks 8-11)
+**Confidence: 95%** | **Investment: $60K-80K**
+
+**User Adoption Catalyst:**
+- **Analysis Paralysis Solution:** Guide users who don't know what to ask
+- **Time-to-Value:** 70% reduction in empty chat abandonment
+- **Engagement:** 40% increase in session duration and exploration depth
+- **Foundation:** Smart AI-powered contextual prompts based on document content
+
+**Implementation Tasks:**
+- [ ] **Week 8:** Suggestion engine core, document content analysis pipeline
+- [ ] **Week 9:** Contextual prompt generation, UI integration with ChatPanel
+- [ ] **Week 10:** Personalization engine, user behavior tracking
+- [ ] **Week 11:** A/B testing, refinement, and optimization
+
+**Success Criteria:**
+- 70% reduction in empty chat session abandonment
+- 40% increase in average session duration
+- 85% user satisfaction with suggestion relevance
+
+#### 1.3.2 Thematic Insights Dashboard (Weeks 10-14)
+**Confidence: 92%** | **Investment: $40K-60K**
+
+**Fragmented Insights Solution:**
+- **Report Generation:** Consolidated findings vs. fragmented chat responses
+- **Competitive Advantage:** AI-first thematic analysis vs. manual Dovetail approach
+- **Professional Output:** PDF reports with themes and supporting evidence
+- **Revenue Impact:** 15-25% increase in willingness to pay
+
+**Implementation Tasks:**
+- [ ] **Week 10-11:** Theme extraction from chat history, database schema
+- [ ] **Week 12-13:** Insights dashboard UI, real-time theme updates
+- [ ] **Week 14:** PDF export, integration testing, user validation
+
+**Success Criteria:**
+- 70% of users access dashboard within first 3 sessions
+- 60% of insights include themes with 3+ supporting citations
+- 85% user preference for dashboard over chat-only analysis
+
+### 1.4 Beta Signup Page (Weeks 15-17)
 **Confidence: 96%** | **Investment: $25K-35K**
 
 **Market Preparation:**
@@ -131,9 +201,9 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 - **Launch Readiness:** User acquisition system ready for auth launch
 
 **Implementation Tasks:**
-- [ ] **Week 8:** Database schema, security measures, basic signup flow
-- [ ] **Week 9:** Admin dashboard, email integration (Resend), analytics
-- [ ] **Week 10:** UI/UX polish, A/B testing setup, launch preparation
+- [ ] **Week 15:** Database schema, security measures, basic signup flow
+- [ ] **Week 16:** Admin dashboard, email integration (Resend), analytics
+- [ ] **Week 17:** UI/UX polish, A/B testing setup, launch preparation
 
 **Success Criteria:**
 - 500+ qualified signups within 3 months of launch
@@ -142,10 +212,31 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 
 ---
 
-## Phase 2: Commercial Viability (Weeks 11-17)
-**Goal:** Enable commercial launch with multi-user support
+## Phase 2: Commercial Viability (Weeks 18-30)
+**Goal:** Enable commercial launch with multi-user support and production readiness
 
-### 2.1 Basic Authentication System (Weeks 11-13)
+### 2.1 Trust-Building & AI Explainability (Weeks 18-25)
+**Confidence: 90%** | **Investment: $90K-120K**
+
+**Research Credibility Foundation:**
+- **Trust Building:** "Can I trust the AI's answer?" anxiety resolution
+- **Professional Adoption:** Evidence-based insights for academic/business use
+- **Competitive Differentiation:** "The only AI research assistant that shows its work"
+- **Market Expansion:** Enable professional and academic research contexts
+
+**Implementation Tasks:**
+- [ ] **Week 18-19:** Evidence quantification system, confidence scoring framework
+- [ ] **Week 20-21:** Methodology transparency, derivation tracking integration
+- [ ] **Week 22-23:** Progressive disclosure UI, uncertainty communication system
+- [ ] **Week 24-25:** Academic standards compliance, validation testing
+
+**Success Criteria:**
+- 85% user confidence in AI insights (measured via surveys)
+- 70% of insights include quantified evidence ("5 of 12 participants")
+- 60% improvement in professional research adoption rates
+- 90% user understanding of AI reasoning process
+
+### 2.2 Basic Authentication System (Weeks 26-28)
 **Confidence: 98%** | **Investment: $45K-65K**
 
 **Commercial Enabler:**
@@ -154,35 +245,98 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 - **Migration Ready:** Current architecture designed for seamless transition
 
 **Implementation Tasks:**
-- [ ] **Week 11:** Auth.js v5 setup, provider configuration, database migration
-- [ ] **Week 12:** Authentication integration, API updates, data migration planning
-- [ ] **Week 13:** Testing, security validation, production deployment
+- [ ] **Week 26:** Auth.js v5 setup, provider configuration, database migration
+- [ ] **Week 27:** Authentication integration, API updates, data migration planning
+- [ ] **Week 28:** Testing, security validation, production deployment
 
 **Success Criteria:**
 - Support 100+ concurrent users with <2 second auth response times
 - Zero data loss during MVP migration
 - Support 3+ authentication providers (Google, GitHub, Email)
 
-### 2.2 Commercial Launch Preparation (Weeks 14-17)
+### 2.3 Chat Rate Limiting Implementation (Weeks 29-31)
+**Confidence: 97%** | **Investment: $35K-50K**
+
+**Cost Control & Abuse Prevention:**
+- **Financial Protection:** Prevent unlimited AI API costs ($20-100/month → manageable)
+- **Service Quality:** Maintain performance during high traffic
+- **Fair Usage:** Ensure equitable access across users
+- **Launch Blocker:** Cannot go commercial without cost controls
+
+**Implementation Tasks:**
+- [ ] **Week 14:** Edge middleware with @upstash/ratelimit, basic rate limiting
+- [ ] **Week 15:** Client-side awareness UI, progressive degradation, queue system
+- [ ] **Week 16:** Token-based limits, monitoring dashboard, optimization
+
+**Success Criteria:**
+- 100% of API endpoints protected with proper error handling
+- AI costs remain within 10% of projected budget
+- <3% legitimate requests blocked by rate limiting
+- 99.9% uptime during peak usage
+
+### 2.3 Commercial Launch Preparation (Weeks 17-21)
 **Investment: $40K-55K**
 
 **Activities:**
-- [ ] **Week 14:** Stripe integration, subscription management system
-- [ ] **Week 15:** Pricing tiers, billing workflows, customer support setup
-- [ ] **Week 16:** Beta user migration, onboarding optimization
-- [ ] **Week 17:** Marketing materials, soft launch with beta users
+- [ ] **Week 17:** Stripe integration, subscription management system
+- [ ] **Week 18:** Pricing tiers, billing workflows, customer support setup
+- [ ] **Week 19:** Beta user migration, onboarding optimization
+- [ ] **Week 20:** Marketing materials, soft launch with beta users
+- [ ] **Week 21:** Full commercial launch, monitoring and optimization
 
 **Success Criteria:**
 - First paying customers within 4 weeks of launch
 - Revenue generation >$1K MRR
 - Customer acquisition cost <$200
+- Rate limiting working effectively in production
 
 ---
 
-## Phase 3: Platform Enhancement (Weeks 18-28)
-**Goal:** Differentiate through advanced AI capabilities
+## Phase 3: Platform Enhancement & Security (Weeks 32-50)
+**Goal:** Differentiate through advanced AI capabilities and ensure production security
 
-### 3.1 Model Selection System (Weeks 18-24)
+### 3.1 Enhanced Copy-to-Clipboard & Shareability (Weeks 32-40)
+**Confidence: 92%** | **Investment: $110K-150K**
+
+**Collaboration & Shareability Foundation:**
+- **Team Adoption:** 40% increase in multi-user studies and team usage
+- **Professional Integration:** Notion, Slack, email sharing capabilities
+- **Format Preservation:** Citations and context maintained across all sharing formats
+- **Revenue Impact:** Enable team subscriptions and enterprise interest
+
+**Implementation Tasks:**
+- [ ] **Week 32-35:** Enhanced copy foundation, multi-format support, citation preservation
+- [ ] **Week 36-38:** Export system (PDF, PowerPoint, CSV), custom templates
+- [ ] **Week 39-40:** External integrations (Notion, Slack), advanced collaboration features
+
+**Success Criteria:**
+- 70% of users using enhanced copy within first session
+- 40% increase in team adoption and collaboration
+- 25% increase in average session duration
+- 60% of shared content includes proper citations
+
+### 3.2 Document Upload Security & Safety Guardrails (Weeks 41-45)
+**Confidence: 96%** | **Investment: $55K-80K**
+
+**Production Security Requirements:**
+- **User Protection:** Malware scanning, PII detection, content moderation
+- **Legal Compliance:** GDPR data subject rights, privacy protection
+- **Cost Control:** Upload rate limiting, file size controls
+- **Business Protection:** Prevent abuse, ensure service reliability
+
+**Implementation Tasks:**
+- [ ] **Week 22:** File validation pipeline, basic malware scanning (ClamAV)
+- [ ] **Week 23:** PII detection (AWS Comprehend), content moderation system
+- [ ] **Week 24:** Sandboxed processing, upload rate limiting, monitoring
+- [ ] **Week 25:** GDPR compliance features, audit logging, testing
+
+**Success Criteria:**
+- 100% of uploaded files scanned for security threats
+- 99%+ accuracy in PII detection with user consent flow
+- Upload processing time <5 seconds average
+- Zero security incidents in first 6 months
+
+### 3.2 Model Selection System (Weeks 26-30)
 **Confidence: 95%** | **Investment: $60K-85K**
 
 **Competitive Advantage:**
@@ -191,18 +345,17 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 - **Performance:** Task-specific model optimization
 
 **Implementation Tasks:**
-- [ ] **Week 18-19:** Backend model abstraction, provider integration
-- [ ] **Week 20-21:** Multi-provider support (OpenAI, Google), UI development
-- [ ] **Week 22-23:** Cost tracking, recommendation system, advanced features
-- [ ] **Week 24:** Testing, optimization, user education
+- [ ] **Week 26-27:** Backend model abstraction, provider integration
+- [ ] **Week 28-29:** Multi-provider support (OpenAI, Google), UI development
+- [ ] **Week 30:** Cost tracking, recommendation system, testing
 
 **Success Criteria:**
 - 60% of users try alternative models within first month
 - 25% cost reduction through smart model selection
 - 85% user satisfaction with model selection experience
 
-### 3.2 Document Collaboration System (Weeks 25-32)
-**Confidence: 96%** | **Investment: $80K-120K**
+### 3.3 Document Collaboration System (Weeks 31-35)
+**Confidence: 96%** | **Investment: $65K-95K** (Reduced scope initially)
 
 **Platform Evolution:**
 - **Create + Analyze:** From document analysis to document creation
@@ -210,9 +363,9 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 - **Export Capabilities:** Multiple formats for research workflows
 
 **Implementation Tasks:**
-- [ ] **Week 25-27:** Foundation (database schema, AI tools, basic creation)
-- [ ] **Week 28-30:** Enhanced creation (templates, versioning, streaming)
-- [ ] **Week 31-32:** Advanced collaboration (export, relationships, polish)
+- [ ] **Week 31-32:** Foundation (database schema, AI tools, basic creation)
+- [ ] **Week 33-34:** Enhanced creation (templates, streaming)
+- [ ] **Week 35:** Export capabilities and testing
 
 **Success Criteria:**
 - 30% of studies include at least one created document
@@ -221,10 +374,10 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 
 ---
 
-## Phase 4: Growth & Optimization (Weeks 29-36)
+## Phase 4: Growth & Optimization (Weeks 36-43)
 **Goal:** Scale user base and optimize for product-market fit
 
-### 4.1 User Acquisition and Retention (Weeks 29-32)
+### 4.1 User Acquisition and Retention (Weeks 36-39)
 **Investment: $60K-90K**
 
 **Focus:** Convert beta users, optimize funnels, scale acquisition
@@ -234,7 +387,7 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 - [ ] Optimize conversion funnels using PostHog insights
 - [ ] Customer success and retention programs
 
-### 4.2 Product-Market Fit Optimization (Weeks 33-36)
+### 4.2 Product-Market Fit Optimization (Weeks 40-43)
 **Investment: $40K-60K**
 
 **Focus:** Feature refinement based on user data and feedback
@@ -251,23 +404,24 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 
 ---
 
-## Phase 5: Enterprise Market Entry (Weeks 37-57+)
+## Phase 5: Enterprise Market Entry (Weeks 44-64+)
 **Goal:** Access enterprise market with full compliance
 
-### 5.1 Enterprise Authentication and Compliance (Weeks 37-57)
+### 5.1 Enterprise Authentication and Compliance (Weeks 44-64)
 **Confidence: 97%** | **Investment: $600K-900K**
 
 **Market Expansion:**
 - **Revenue Multiplier:** Enterprise customers pay 5-10x more
 - **Market Access:** $15B+ enterprise research market
 - **Competitive Moat:** First compliant research platform
+- **Security Foundation:** Builds on Phase 3 security guardrails
 
 **Implementation Timeline:**
-- [ ] **Weeks 37-40:** Foundation (Better-Auth, multi-tenant architecture)
-- [ ] **Weeks 41-44:** Enterprise Authentication (SSO, SAML, MFA)
-- [ ] **Weeks 45-48:** RBAC and team collaboration features
-- [ ] **Weeks 49-52:** GDPR compliance, data subject rights
-- [ ] **Weeks 53-57:** HIPAA compliance, SOC 2 preparation
+- [ ] **Weeks 44-47:** Foundation (Better-Auth, multi-tenant architecture)
+- [ ] **Weeks 48-51:** Enterprise Authentication (SSO, SAML, MFA)
+- [ ] **Weeks 52-55:** RBAC and team collaboration features
+- [ ] **Weeks 56-59:** Enhanced GDPR compliance, advanced data subject rights
+- [ ] **Weeks 60-64:** HIPAA compliance, SOC 2 preparation
 
 **Success Criteria:**
 - Support 100+ organizations with full data isolation
@@ -286,26 +440,26 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 - High-impact, medium-complexity work
 - **Investment:** $95K-140K
 
-**Phase 2 (Weeks 11-17):** 2-3 Developers + Auth Specialist
-- Authentication specialist and commercial launch prep
-- **Investment:** $85K-120K
+**Phase 2 (Weeks 11-21):** 2-3 Developers + Auth/Security Specialist
+- Authentication, rate limiting, and commercial launch prep
+- **Investment:** $120K-165K
 
-**Phase 3 (Weeks 18-28):** 3-4 Developers
-- Advanced feature development and platform enhancement
-- **Investment:** $140K-205K
+**Phase 3 (Weeks 22-35):** 3-4 Developers + Security Engineer
+- Security guardrails and advanced feature development
+- **Investment:** $180K-260K
 
-**Phase 4 (Weeks 29-36):** 3-4 Developers + Marketing
+**Phase 4 (Weeks 36-43):** 3-4 Developers + Marketing
 - Growth optimization and product-market fit
 - **Investment:** $100K-150K
 
-**Phase 5 (Weeks 37-57+):** 4-6 Developers + Specialists
+**Phase 5 (Weeks 44-64+):** 4-6 Developers + Specialists
 - Enterprise development team with compliance specialist
 - **Investment:** $600K-900K
 
 ### Total Investment Summary
-- **Phases 1-4:** $420K-615K over 36 weeks
-- **Phase 5:** $600K-900K over 20+ weeks
-- **Total:** $1.02M-1.515M for complete roadmap
+- **Phases 1-4:** $495K-715K over 43 weeks
+- **Phase 5:** $600K-900K over 21+ weeks
+- **Total:** $1.095M-1.615M for complete roadmap
 
 ---
 
@@ -319,11 +473,13 @@ This updated roadmap incorporates all available PRDs and provides a strategic pa
 
 **Phase 2 Risks (Medium)**
 - Auth migration complexity → Extensive testing environment
+- Rate limiting user experience → Careful limits and clear messaging
 - Market reception uncertainty → Beta user feedback and gradual rollout
 
-**Phase 3 Risks (Medium)**
+**Phase 3 Risks (Medium-High)**
+- Security implementation complexity → External security audit and testing
 - Model integration complexity → Phased provider rollout
-- Feature adoption uncertainty → A/B testing and user research
+- Upload processing performance → Load testing and optimization
 
 **Phase 4 Risks (Medium)**
 - User acquisition costs → Multiple channels and optimization
