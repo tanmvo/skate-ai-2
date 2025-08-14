@@ -1,4 +1,5 @@
 import { vi } from 'vitest';
+import type { UIMessage } from '@ai-sdk/react';
 
 // AI SDK v5 compatible types
 export interface MockUseChatOptions {
@@ -35,6 +36,15 @@ export interface MockUseChatOptions {
 
 // Hook-specific mock types for comprehensive state testing
 export interface MockUseChatManagerOptions {
+  chats?: Array<{
+    id: string;
+    title: string;
+    createdAt: Date;
+    updatedAt: Date;
+    studyId: string;
+    userId: string;
+    _count: { messages: number };
+  }>;
   currentChatId?: string | null;
   currentChat?: {
     id: string;
@@ -42,16 +52,18 @@ export interface MockUseChatManagerOptions {
     createdAt: Date;
     updatedAt: Date;
     studyId: string;
-    _count?: { messages: number };
+    userId: string;
+    _count: { messages: number };
   } | null;
   loading?: boolean;
   error?: string | null;
   isCreatingNew?: boolean;
   isGeneratingTitle?: boolean;
+  titleGenerationChatId?: string | null;
 }
 
 export interface MockUseMessagesOptions {
-  messages?: Array<any>;
+  messages?: UIMessage[];
   error?: Error | null;
   isLoading?: boolean;
 }
@@ -60,12 +72,14 @@ export interface MockUseMessagesOptions {
 export const ChatPanelStates = {
   LOADING_CHAT: {
     useChatManager: {
+      chats: [],
       currentChatId: null,
       currentChat: null,
       loading: true,
       error: null,
       isCreatingNew: true,
       isGeneratingTitle: false,
+      titleGenerationChatId: null,
     },
     useMessages: {
       messages: [],
@@ -79,6 +93,15 @@ export const ChatPanelStates = {
   },
   LOADING_MESSAGES: {
     useChatManager: {
+      chats: [{
+        id: 'test-chat-123',
+        title: 'New Chat',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        studyId: 'test-study-123',
+        userId: 'test-user-123',
+        _count: { messages: 0 }
+      }],
       currentChatId: 'test-chat-123',
       currentChat: {
         id: 'test-chat-123',
@@ -86,12 +109,14 @@ export const ChatPanelStates = {
         createdAt: new Date(),
         updatedAt: new Date(),
         studyId: 'test-study-123',
+        userId: 'test-user-123',
         _count: { messages: 0 }
       },
       loading: false,
       error: null,
       isCreatingNew: false,
       isGeneratingTitle: false,
+      titleGenerationChatId: null,
     },
     useMessages: {
       messages: [],
@@ -105,6 +130,15 @@ export const ChatPanelStates = {
   },
   ERROR_MESSAGES: {
     useChatManager: {
+      chats: [{
+        id: 'test-chat-123',
+        title: 'New Chat',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        studyId: 'test-study-123',
+        userId: 'test-user-123',
+        _count: { messages: 0 }
+      }],
       currentChatId: 'test-chat-123',
       currentChat: {
         id: 'test-chat-123',
@@ -112,12 +146,14 @@ export const ChatPanelStates = {
         createdAt: new Date(),
         updatedAt: new Date(),
         studyId: 'test-study-123',
+        userId: 'test-user-123',
         _count: { messages: 0 }
       },
       loading: false,
       error: null,
       isCreatingNew: false,
       isGeneratingTitle: false,
+      titleGenerationChatId: null,
     },
     useMessages: {
       messages: [],
@@ -131,12 +167,14 @@ export const ChatPanelStates = {
   },
   ERROR_CHAT: {
     useChatManager: {
+      chats: [],
       currentChatId: null,
       currentChat: null,
       loading: false,
       error: 'Error loading chat',
       isCreatingNew: false,
       isGeneratingTitle: false,
+      titleGenerationChatId: null,
     },
     useMessages: {
       messages: [],
@@ -150,6 +188,15 @@ export const ChatPanelStates = {
   },
   EMPTY_READY: {
     useChatManager: {
+      chats: [{
+        id: 'test-chat-123',
+        title: 'New Chat',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        studyId: 'test-study-123',
+        userId: 'test-user-123',
+        _count: { messages: 0 }
+      }],
       currentChatId: 'test-chat-123',
       currentChat: {
         id: 'test-chat-123',
@@ -157,12 +204,14 @@ export const ChatPanelStates = {
         createdAt: new Date(),
         updatedAt: new Date(),
         studyId: 'test-study-123',
+        userId: 'test-user-123',
         _count: { messages: 0 }
       },
       loading: false,
       error: null,
       isCreatingNew: false,
       isGeneratingTitle: false,
+      titleGenerationChatId: null,
     },
     useMessages: {
       messages: [],
@@ -177,6 +226,15 @@ export const ChatPanelStates = {
   },
   AI_SDK_LOADING: {
     useChatManager: {
+      chats: [{
+        id: 'test-chat-123',
+        title: 'New Chat',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        studyId: 'test-study-123',
+        userId: 'test-user-123',
+        _count: { messages: 0 }
+      }],
       currentChatId: 'test-chat-123',
       currentChat: {
         id: 'test-chat-123',
@@ -184,12 +242,14 @@ export const ChatPanelStates = {
         createdAt: new Date(),
         updatedAt: new Date(),
         studyId: 'test-study-123',
+        userId: 'test-user-123',
         _count: { messages: 0 }
       },
       loading: false,
       error: null,
       isCreatingNew: false,
       isGeneratingTitle: false,
+      titleGenerationChatId: null,
     },
     useMessages: {
       messages: [],
@@ -247,6 +307,15 @@ export const mockUseChat = createMockUseChat();
  */
 export const createMockHooks = () => ({
   useChatManager: vi.fn(() => ({
+    chats: [{
+      id: 'test-chat-123',
+      title: 'New Chat',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      studyId: 'test-study-123',
+      userId: 'test-user-123',
+      _count: { messages: 0 }
+    }],
     currentChatId: 'test-chat-123',
     currentChat: {
       id: 'test-chat-123',
@@ -254,13 +323,18 @@ export const createMockHooks = () => ({
       createdAt: new Date(),
       updatedAt: new Date(),
       studyId: 'test-study-123',
+      userId: 'test-user-123',
+      _count: { messages: 0 }
     },
     loading: false,
     error: null,
     isCreatingNew: false,
     isGeneratingTitle: false,
+    titleGenerationChatId: null,
     createNewChat: vi.fn(),
+    generateTitle: vi.fn(),
     generateTitleInBackground: vi.fn(),
+    refetchChats: vi.fn(),
   })),
 
   useMessages: vi.fn(() => ({
@@ -275,21 +349,34 @@ export const createMockHooks = () => ({
  * Create mock for useChatManager with specific state
  */
 export const createMockUseChatManager = (overrides: MockUseChatManagerOptions = {}) => ({
-  currentChatId: overrides.currentChatId || 'test-chat-123',
-  currentChat: overrides.currentChat || {
+  chats: overrides.chats || [{
     id: 'test-chat-123',
     title: 'New Chat',
     createdAt: new Date(),
     updatedAt: new Date(),
     studyId: 'test-study-123',
+    userId: 'test-user-123',
+    _count: { messages: 0 }
+  }],
+  currentChatId: overrides.currentChatId !== undefined ? overrides.currentChatId : 'test-chat-123',
+  currentChat: overrides.currentChat !== undefined ? overrides.currentChat : {
+    id: 'test-chat-123',
+    title: 'New Chat',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    studyId: 'test-study-123',
+    userId: 'test-user-123',
     _count: { messages: 0 }
   },
   loading: overrides.loading || false,
   error: overrides.error || null,
   isCreatingNew: overrides.isCreatingNew || false,
   isGeneratingTitle: overrides.isGeneratingTitle || false,
+  titleGenerationChatId: overrides.titleGenerationChatId || null,
   createNewChat: vi.fn(),
+  generateTitle: vi.fn(),
   generateTitleInBackground: vi.fn(),
+  refetchChats: vi.fn(),
 });
 
 /**
@@ -335,8 +422,9 @@ export const setupChatPanelState = async (stateName: keyof typeof ChatPanelState
  */
 export const resetMocks = () => {
   Object.keys(mockUseChat).forEach(key => {
-    if (vi.isMockFunction((mockUseChat as any)[key])) {
-      (mockUseChat as any)[key].mockClear();
+    const value = mockUseChat[key as keyof typeof mockUseChat];
+    if (vi.isMockFunction(value)) {
+      value.mockClear();
     }
   });
 
