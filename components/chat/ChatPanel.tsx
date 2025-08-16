@@ -133,12 +133,10 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   // Load cached messages when available
   useEffect(() => {
     if (cachedMessages.length > 0 && currentChatId && !loadingMessages) {
-      console.log('Setting cached messages:', cachedMessages.length, 'messages for chat:', currentChatId);
       setMessages(cachedMessages);
       setMessagesLoaded(true);
     } else if (currentChatId && !loadingMessages && cachedMessages.length === 0) {
       // Chat exists but has no messages - clear current messages
-      console.log('Clearing messages for empty chat:', currentChatId);
       setMessages([]);
       setMessagesLoaded(true);
     }
