@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUserId, validateStudyOwnership } from "@/lib/auth";
+import { trackStudyEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
 
 export async function GET(
   request: NextRequest,
@@ -47,9 +48,26 @@ export async function GET(
       );
     }
 
+    // Track study access
+    await trackStudyEvent('study_accessed', {
+      studyId: study.id,
+      studyName: study.name,
+      documentCount: study._count.documents,
+      messageCount: study._count.messages,
+    }, userId);
+
     return NextResponse.json(study);
   } catch (error) {
     console.error("Error fetching study:", error);
+    
+    await trackErrorEvent('api_error_occurred', {
+      errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error fetching study',
+      endpoint: `/api/studies/${params.studyId}`,
+      statusCode: 500,
+      stackTrace: error instanceof Error ? error.stack : undefined,
+    });
+    
     return NextResponse.json(
       { error: "Failed to fetch study" },
       { status: 500 }
@@ -114,9 +132,28 @@ export async function PUT(
       },
     });
 
+    // Track study rename
+    if (updatedStudy) {
+      await trackStudyEvent('study_renamed', {
+        studyId: updatedStudy.id,
+        studyName: updatedStudy.name,
+        documentCount: updatedStudy._count.documents,
+        messageCount: updatedStudy._count.messages,
+      }, userId);
+    }
+
     return NextResponse.json(updatedStudy);
   } catch (error) {
     console.error("Error updating study:", error);
+    
+    await trackErrorEvent('api_error_occurred', {
+      errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error updating study',
+      endpoint: `/api/studies/${params.studyId}`,
+      statusCode: 500,
+      stackTrace: error instanceof Error ? error.stack : undefined,
+    });
+    
     return NextResponse.json(
       { error: "Failed to update study" },
       { status: 500 }
@@ -141,6 +178,22 @@ export async function DELETE(
       );
     }
 
+    // Get study info before deletion for tracking
+    const studyToDelete = await prisma.study.findFirst({
+      where: { 
+        id: params.studyId,
+        userId,
+      },
+      include: {
+        _count: {
+          select: {
+            documents: true,
+            messages: true,
+          },
+        },
+      },
+    });
+
     const result = await prisma.study.deleteMany({
       where: { 
         id: params.studyId,
@@ -155,9 +208,28 @@ export async function DELETE(
       );
     }
 
+    // Track study deletion
+    if (studyToDelete) {
+      await trackStudyEvent('study_deleted', {
+        studyId: studyToDelete.id,
+        studyName: studyToDelete.name,
+        documentCount: studyToDelete._count.documents,
+        messageCount: studyToDelete._count.messages,
+      }, userId);
+    }
+
     return NextResponse.json({ message: "Study deleted successfully" });
   } catch (error) {
     console.error("Error deleting study:", error);
+    
+    await trackErrorEvent('api_error_occurred', {
+      errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : 'Unknown error deleting study',
+      endpoint: `/api/studies/${params.studyId}`,
+      statusCode: 500,
+      stackTrace: error instanceof Error ? error.stack : undefined,
+    });
+    
     return NextResponse.json(
       { error: "Failed to delete study" },
       { status: 500 }

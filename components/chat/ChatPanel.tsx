@@ -13,6 +13,7 @@ import { motion } from "framer-motion";
 import { useChatManager } from "@/lib/hooks/useChatManager";
 import { useMessages } from "@/lib/hooks/useMessages";
 import { SimpleChatHeader } from "./SimpleChatHeader";
+import { useAnalytics } from "@/lib/analytics/hooks/use-analytics";
 
 interface ChatPanelProps {
   studyId: string;
@@ -25,6 +26,9 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [messagesLoaded, setMessagesLoaded] = useState(false);
+  
+  // Analytics tracking
+  const { trackMessageCopy } = useAnalytics();
 
   // Use the chat manager hook
   const { 
@@ -201,6 +205,18 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     onCitationClick?.(citation);
   };
 
+  const handleMessageCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success('Copied to clipboard');
+    
+    // Track the copy action - using default 'general_response' type for now
+    trackMessageCopy(
+      studyId,
+      currentChatId || undefined,
+      'general_response'
+    );
+  }, [studyId, currentChatId, trackMessageCopy]);
+
   const formatTimestamp = (date: Date) => {
     return new Intl.DateTimeFormat("en", {
       hour: "2-digit",
@@ -337,10 +353,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
                 onRetryPersistence={() => {
                   // No-op: Server handles all persistence now
                 }}
-                onCopy={(text: string) => {
-                  navigator.clipboard.writeText(text);
-                  toast.success('Copied to clipboard');
-                }}
+                onCopy={(text: string) => handleMessageCopy(text)}
                 formatTimestamp={formatTimestamp}
               />
             );

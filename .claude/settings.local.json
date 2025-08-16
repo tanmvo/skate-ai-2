@@ -23,7 +23,8 @@
       "Bash(node:*)",
       "Bash(npm:*)",
       "Bash(npx tsx:*)",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:posthog.com)"
     ],
     "deny": []
   }

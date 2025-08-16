@@ -452,14 +452,18 @@ describe('ChatPanel', () => {
   it('shows loading state when chat is being created', async () => {
     const { useChatManager } = await import('@/lib/hooks/useChatManager');
     vi.mocked(useChatManager).mockReturnValue({
+      chats: [],
       currentChatId: null,
       currentChat: null,
       loading: true,
       error: null,
       isCreatingNew: true,
       isGeneratingTitle: false,
+      titleGenerationChatId: null,
       createNewChat: vi.fn(),
+      generateTitle: vi.fn(),
       generateTitleInBackground: vi.fn(),
+      refetchChats: vi.fn(),
     });
 
     renderWithProviders(<ChatPanel studyId={studyId} />);

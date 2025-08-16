@@ -416,9 +416,16 @@ const businessMetrics = {
 ### Phase 2: Core Event Tracking (Week 2)
 - [ ] Document upload and processing events
 - [ ] AI chat interaction tracking
-- [ ] Search and citation event tracking
 - [ ] Study management event tracking
 - [ ] Error and performance tracking
+
+### Phase 2.5: Architecture Refactoring (CRITICAL)
+- [ ] **TECHNICAL DEBT:** Refactor client-side user identification workaround
+- [ ] Create authenticated user context provider for proper server/client separation
+- [ ] Implement session-based user identification in analytics
+- [ ] Add server-side analytics client for API route tracking
+- [ ] Test multi-user analytics data separation
+- [ ] **Priority:** Must complete before Phase 3 and production release
 
 ### Phase 3: Advanced Analytics (Week 3)
 - [ ] Funnel analysis configuration
@@ -555,6 +562,89 @@ export async function POST(request: Request) {
 - [ ] Real-time dashboard updates <5 minutes delay
 - [ ] 100% integration coverage across critical user paths
 - [ ] Weekly actionable insights generated and documented
+
+---
+
+## Technical Debt & Architecture Notes
+
+### ⚠️ Current Technical Debt: Client-Side User Identification Workaround
+
+**File:** `lib/analytics/hooks/use-analytics.ts`  
+**Issue:** Using hardcoded `DEFAULT_USER_ID` instead of proper server-side user authentication  
+**Impact:** Limited to single-user MVP, won't scale to multi-user production  
+
+#### Root Cause Analysis
+The analytics hook attempts to use `getCurrentUserId()` from `lib/auth.ts`, which imports Prisma (server-side only). This violates Next.js client/server boundaries.
+
+**Current Workaround:**
+```typescript
+// TEMPORARY: Hardcoded user ID for MVP testing
+const actualUserId = userId || DEFAULT_USER_ID
+```
+
+#### Required Refactoring for Production
+
+**1. Server-Side User Context Provider**
+Create authenticated user context that works across client/server boundary:
+
+```typescript
+// lib/contexts/user-context.tsx
+export function UserProvider({ children, user }: { 
+  children: React.ReactNode
+  user: User | null 
+}) {
+  // Pass server-side user data to client components
+}
+```
+
+**2. Hybrid Analytics Architecture**
+- **Server-side tracking:** API routes, sensitive operations, user lifecycle
+- **Client-side tracking:** UI interactions, page views, feature usage
+
+**3. Session-Based User Identification**
+```typescript
+// lib/analytics/hooks/use-analytics.ts (FUTURE)
+export const useAnalytics = () => {
+  const { user } = useUser() // From authenticated context
+  
+  const identify = (properties?: Record<string, any>) => {
+    if (!user) return // Don't identify anonymous users
+    posthog?.identify(user.id, {
+      email: user.email,
+      name: user.name,
+      signup_date: user.createdAt,
+      ...properties
+    })
+  }
+}
+```
+
+**4. Server-Side Analytics Client**
+```typescript
+// lib/analytics/server-analytics.ts (FUTURE)
+import { PostHog } from 'posthog-node'
+
+export async function trackServerEvent(
+  userId: string,
+  event: string, 
+  properties?: Record<string, any>
+) {
+  // Server-side event tracking for API routes
+}
+```
+
+#### Implementation Checklist (Phase 2.5)
+
+- [ ] Create authenticated user context provider
+- [ ] Refactor analytics hook to use real user session
+- [ ] Add server-side analytics client for API routes
+- [ ] Update user identification to be session-based
+- [ ] Test multi-user analytics separation
+- [ ] Update PRD Phase 2 to include architecture fix
+
+**Estimated Effort:** 2-3 hours refactoring + 1 hour testing  
+**Priority:** High (before production release)  
+**Status:** Technical debt tracked, workaround in place for MVP testing  
 
 ---
 

@@ -242,6 +242,7 @@ lib/
 - Resend API account and key
 - Google OAuth application setup
 - GitHub OAuth application setup
+- **PostHog Analytics Integration** (already implemented - requires user context updates)
 
 ### Internal Prerequisites  
 - Database migration capability

@@ -5,6 +5,7 @@ import { useDropzone } from "react-dropzone";
 import { Upload, File, Loader2, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/lib/hooks/useFileUpload";
+import { useAnalytics } from "@/lib/analytics/hooks/use-analytics";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,12 +24,16 @@ const ACCEPTED_FILE_TYPES = {
 
 export function FileUpload({ studyId, onFileUploaded, className, disabled }: FileUploadProps) {
   const { uploadFile, uploads, isUploading } = useFileUpload();
+  const { trackDocumentUpload } = useAnalytics();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
     for (const file of acceptedFiles) {
       try {
+        // Track document upload attempt
+        trackDocumentUpload(file.name, file.type, file.size);
+        
         const uploadedFile = await uploadFile(file, studyId);
         
         // Call the callback if provided
@@ -42,7 +47,7 @@ export function FileUpload({ studyId, onFileUploaded, className, disabled }: Fil
         toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
       }
     }
-  }, [uploadFile, studyId, onFileUploaded]);
+  }, [uploadFile, studyId, onFileUploaded, trackDocumentUpload]);
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
     onDrop,

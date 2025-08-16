@@ -274,21 +274,50 @@ The plan balances immediate user needs, technical foundation building, and long-
 - <3% legitimate requests blocked by rate limiting
 - 99.9% uptime during peak usage
 
-### 2.3 Commercial Launch Preparation (Weeks 17-21)
-**Investment: $40K-55K**
+### 2.3 Commercial Launch Preparation (Weeks 15-20) **🆕 UPDATED**
+**Investment: $50K-70K** *(Expanded scope for comprehensive billing)*
+
+**🎯 CRITICAL ACTION ITEM: Pricing Strategy Research (Week 16)**
+**Owner:** Product/Business team | **Deadline:** Before Stripe implementation
+
+**Research Requirements:**
+- Competitive analysis: Dovetail ($89/month), NotionAI ($10/month), research platforms ($15K-50K annually)
+- User willingness-to-pay study with 20+ beta users
+- Cost structure analysis: AI inference (~$0.10-0.30 per 1K tokens), document processing, Stripe fees (2.9% + $0.30)
+- Usage pattern analysis: optimal tier limits, overage triggers, team pricing models
+
+**Proposed Pricing Models to Validate:**
+1. **Credit-Based System**: Free (5 docs/25 AI interactions) → $29/month (25 docs/100 interactions) → $79/month (100 docs/500 interactions)
+2. **Usage-Based**: $2.99 per document + $0.50 per AI interaction + $19/month base
+3. **Hybrid Model**: $39/month base + overage charges for additional usage
 
 **Activities:**
-- [ ] **Week 17:** Stripe integration, subscription management system
-- [ ] **Week 18:** Pricing tiers, billing workflows, customer support setup
-- [ ] **Week 19:** Beta user migration, onboarding optimization
-- [ ] **Week 20:** Marketing materials, soft launch with beta users
-- [ ] **Week 21:** Full commercial launch, monitoring and optimization
+- [ ] **Week 15:** Beta signup completion + Stripe account setup, webhook configuration
+- [ ] **Week 16:** 🎯 **PRICING STRATEGY RESEARCH COMPLETION** (Critical dependency)
+- [ ] **Week 17:** Core Stripe integration, customer management, subscription creation
+- [ ] **Week 18:** Usage tracking system, billing logic, AI interaction costing
+- [ ] **Week 19:** User interface, customer portal, payment flows, beta user migration  
+- [ ] **Week 20:** Production launch, monitoring, billing automation validation
 
 **Success Criteria:**
 - First paying customers within 4 weeks of launch
-- Revenue generation >$1K MRR
-- Customer acquisition cost <$200
-- Rate limiting working effectively in production
+- Revenue generation >$2K MRR by month 3
+- 15% freemium to paid conversion rate
+- Average revenue per user (ARPU) of $45-75/month
+- 60%+ gross margins after AI and infrastructure costs
+- <2% payment failure rate
+- Pricing strategy validated with beta user research
+
+**Updated Priority Score: 33 (CRITICAL+)**
+- Impact: 10 (Revenue enabler, commercial launch requirement)
+- Effort: 6 (Expanded scope but proven patterns)  
+- Urgency: 9 (Blocking commercial launch)
+- Risk: 2 (Well-established Stripe + Next.js integration)
+
+**Dependencies:**
+- Authentication System (Week 12-14) - REQUIRED
+- Analytics & Monitoring (Week 5-7) - REQUIRED for usage tracking
+- Beta Signup Page (Week 15) - REQUIRED for customer acquisition
 
 ---
 

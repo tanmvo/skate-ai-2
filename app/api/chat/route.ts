@@ -12,6 +12,7 @@ import {
 import { 
   createSearchTools
 } from '@/lib/llm-tools/search-tools';
+import { trackChatEvent, trackSearchEvent, trackErrorEvent } from '@/lib/analytics/server-analytics';
 
 // Types for tool call persistence
 interface AISDKv5MessagePart {
@@ -77,6 +78,8 @@ function extractToolCallsFromParts(parts: AISDKv5MessagePart[]): PersistedToolCa
 }
 
 export async function POST(req: NextRequest) {
+  const requestStartTime = Date.now();
+  
   try {
     // Check API key availability first
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -142,11 +145,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Save user message to database first
+    let userMessageLength = 0;
     try {
       const userContent = message.parts
         ?.filter((part: { type: string; text?: string }) => part.type === 'text')
         .map((part: { type: string; text?: string }) => part.text)
         .join('') || '';
+
+      userMessageLength = userContent.trim().length;
 
       await prisma.chatMessage.create({
         data: {
@@ -156,6 +162,13 @@ export async function POST(req: NextRequest) {
           studyId: studyId,
         },
       });
+      
+      // Track message sent
+      await trackChatEvent('message_sent', {
+        studyId,
+        messageLength: userMessageLength,
+      }, userId);
+      
       console.log('Server-side: Saved user message');
     } catch (error) {
       console.error('Server-side: Failed to save user message:', error);
@@ -357,6 +370,12 @@ Never just return raw search results - always synthesize into meaningful insight
 
 CRITICAL: After executing any tools, you MUST continue with your analysis and provide a complete response. Do not stop after tool execution - always provide synthesis, insights, and conclusions based on the search results.`;
 
+    // Track AI response started
+    await trackChatEvent('ai_response_started', {
+      studyId,
+      messageLength: userMessageLength,
+    }, userId);
+
     // Generate AI response using v5 createUIMessageStream pattern
     try {
       const stream = createUIMessageStream({
@@ -396,16 +415,22 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
         onFinish: async ({ messages }) => {
           // Save all assistant messages to database with tool call persistence
           try {
+            let totalToolCalls = 0;
+            
             for (const msg of messages) {
               if (msg.role === 'assistant') {
                 const messageParts = (msg as unknown as { parts?: AISDKv5MessagePart[] }).parts;
                 if (!messageParts?.length) continue;
                 
                 const toolCalls = extractToolCallsFromParts(messageParts);
+                totalToolCalls += toolCalls.length;
+                
                 const textContent = messageParts
                   .filter(part => part.type === 'text' && part.text)
                   .map(part => part.text!)
                   .join('').trim();
+                
+                // Response length tracking removed - not currently used
                 
                 if (!textContent && !toolCalls.length) continue;
                 
@@ -419,15 +444,45 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
                     studyId: studyId,
                   },
                 });
+                
+                // Track individual tool calls
+                for (const toolCall of toolCalls) {
+                  await trackSearchEvent('tool_call_completed', {
+                    studyId,
+                    toolName: toolCall.toolName,
+                    query: toolCall.query,
+                    resultCount: toolCall.resultCount,
+                    processingTimeMs: Date.now() - toolCall.timestamp,
+                  }, userId);
+                }
+                
                 console.log('Server-side: Saved assistant message with tool calls:', toolCalls.length);
               }
             }
+            
+            // Track AI response completed
+            await trackChatEvent('ai_response_completed', {
+              studyId,
+              messageLength: userMessageLength,
+              responseTimeMs: Date.now() - requestStartTime,
+              toolCallsCount: totalToolCalls,
+            }, userId);
+            
           } catch (error) {
             console.error('Server-side: Tool call persistence failed:', error);
             // Non-blocking - chat continues even if persistence fails
           }
         },
-        onError: () => {
+        onError: (error) => {
+          // Track AI response failure (non-blocking)
+          trackChatEvent('ai_response_failed', {
+            studyId,
+            messageLength: userMessageLength,
+            responseTimeMs: Date.now() - requestStartTime,
+            errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+            errorMessage: error instanceof Error ? error.message : 'Unknown error',
+          }, userId).catch(console.error);
+          
           return 'An error occurred while processing your request. Please try again.';
         },
       });
@@ -446,6 +501,15 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
 
   } catch (error) {
     console.error('Chat API error:', error);
+    
+    // Track chat error
+    await trackErrorEvent('chat_error_occurred', {
+      errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : 'Unknown chat error',
+      endpoint: '/api/chat',
+      statusCode: error instanceof ServiceUnavailableError ? 503 : error instanceof RateLimitError ? 429 : 500,
+      stackTrace: error instanceof Error ? error.stack : undefined,
+    });
     
     const sanitized = sanitizeError(error);
     

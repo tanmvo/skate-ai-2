@@ -5,6 +5,7 @@ import { storeFile, validateFile } from "@/lib/file-storage";
 import { extractTextFromBuffer } from "@/lib/document-processing";
 import { chunkText } from "@/lib/document-chunking";
 import { generateBatchEmbeddings, serializeEmbedding } from "@/lib/voyage-embeddings";
+import { trackDocumentUploadEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
 
 /**
  * Determine the actual storage type used based on headers and environment
@@ -26,16 +27,23 @@ function determineStorageType(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+  // const startTime = Date.now(); // TODO: Use for performance tracking
+  const userId = getCurrentUserId();
+  
   try {
-    // Validate user authentication
-    getCurrentUserId();
-    
     // Parse the multipart form data
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const studyId = formData.get("studyId") as string;
 
     if (!file) {
+      await trackErrorEvent('upload_error_occurred', {
+        errorType: 'ValidationError',
+        errorMessage: 'No file provided',
+        endpoint: '/api/upload',
+        statusCode: 400,
+      }, userId);
+      
       return NextResponse.json(
         { error: "No file provided" },
         { status: 400 }
@@ -43,6 +51,13 @@ export async function POST(request: NextRequest) {
     }
 
     if (!studyId) {
+      await trackErrorEvent('upload_error_occurred', {
+        errorType: 'ValidationError',
+        errorMessage: 'Study ID is required',
+        endpoint: '/api/upload',
+        statusCode: 400,
+      }, userId);
+      
       return NextResponse.json(
         { error: "Study ID is required" },
         { status: 400 }
@@ -58,9 +73,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Track upload started
+    await trackDocumentUploadEvent('document_upload_started', {
+      studyId,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+    }, userId);
+
     // Validate file type and size
     const validation = validateFile(file);
     if (!validation.valid) {
+      await trackErrorEvent('upload_error_occurred', {
+        errorType: 'FileValidationError',
+        errorMessage: validation.error!,
+        endpoint: '/api/upload',
+        statusCode: 400,
+      }, userId);
+      
       return NextResponse.json(
         { error: validation.error },
         { status: 400 }
@@ -97,7 +127,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Process the document asynchronously
-    processDocumentAsync(document.id, buffer, file.type, file.name);
+    processDocumentAsync(document.id, buffer, file.type, file.name, studyId, userId);
 
     return NextResponse.json({
       success: true,
@@ -114,6 +144,15 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error("Upload error:", error);
+    
+    // Track upload error
+    await trackErrorEvent('upload_error_occurred', {
+      errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : 'Unknown upload error',
+      endpoint: '/api/upload',
+      statusCode: 500,
+      stackTrace: error instanceof Error ? error.stack : undefined,
+    }, userId);
     
     // Handle specific error types
     if (error instanceof Error) {
@@ -155,10 +194,22 @@ async function processDocumentAsync(
   documentId: string,
   buffer: Buffer,
   mimeType: string,
-  fileName: string
+  fileName: string,
+  studyId: string,
+  userId: string
 ): Promise<void> {
+  const processingStartTime = Date.now();
+  
   try {
     console.log(`Starting document processing for ${documentId}: ${fileName}`);
+    
+    // Track processing started
+    await trackDocumentUploadEvent('document_processing_started', {
+      studyId,
+      fileName,
+      fileType: mimeType,
+      fileSize: buffer.length,
+    }, userId);
 
     // Step 1: Extract text from the document
     const extractionResult = await extractTextFromBuffer(buffer, mimeType, fileName);
@@ -166,6 +217,17 @@ async function processDocumentAsync(
     if (!('text' in extractionResult)) {
       // Handle extraction failure
       console.error(`Text extraction failed for ${documentId}:`, extractionResult.error);
+      
+      // Track processing failure
+      await trackDocumentUploadEvent('document_processing_failed', {
+        studyId,
+        fileName,
+        fileType: mimeType,
+        fileSize: buffer.length,
+        processingTimeMs: Date.now() - processingStartTime,
+        errorType: 'TextExtractionError',
+        errorMessage: extractionResult.error,
+      }, userId);
       
       await prisma.document.update({
         where: { id: documentId },
@@ -223,10 +285,30 @@ async function processDocumentAsync(
       data: { status: "READY" },
     });
 
+    // Track successful processing
+    await trackDocumentUploadEvent('document_processing_completed', {
+      studyId,
+      fileName,
+      fileType: mimeType,
+      fileSize: buffer.length,
+      processingTimeMs: Date.now() - processingStartTime,
+    }, userId);
+
     console.log(`Successfully processed document ${documentId}: ${fileName}`);
 
   } catch (error) {
     console.error(`Document processing failed for ${documentId}:`, error);
+    
+    // Track processing failure
+    await trackDocumentUploadEvent('document_processing_failed', {
+      studyId,
+      fileName,
+      fileType: mimeType,
+      fileSize: buffer.length,
+      processingTimeMs: Date.now() - processingStartTime,
+      errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+      errorMessage: error instanceof Error ? error.message : 'Unknown processing error',
+    }, userId);
     
     // Mark document as failed
     await prisma.document.update({
