@@ -4,6 +4,27 @@
 
 import { useState, useCallback } from "react";
 
+// Custom error type for validation errors
+export interface ValidationError extends Error {
+  isValidation: true;
+  details?: string;
+  suggestion?: string;
+}
+
+// Type guard to check if an error is a ValidationError
+function isValidationError(error: unknown): error is ValidationError {
+  return error instanceof Error && 'isValidation' in error && 'details' in error && 'suggestion' in error;
+}
+
+// Helper function to create a ValidationError
+function createValidationError(message: string, details?: string, suggestion?: string): ValidationError {
+  const error = new Error(message) as ValidationError;
+  error.isValidation = true;
+  error.details = details;
+  error.suggestion = suggestion;
+  return error;
+}
+
 export interface UploadProgress {
   fileName: string;
   progress: number; // 0-100
@@ -88,14 +109,14 @@ export function useFileUpload(): UseFileUploadReturn {
             // Validation error - file processing failed
             try {
               const response = JSON.parse(xhr.responseText);
-              const validationError = new Error(response.error || "File validation failed");
-              (validationError as any).isValidation = true;
-              (validationError as any).details = response.details;
-              (validationError as any).suggestion = response.suggestion;
+              const validationError = createValidationError(
+                response.error || "File validation failed",
+                response.details,
+                response.suggestion
+              );
               reject(validationError);
             } catch {
-              const validationError = new Error("File validation failed");
-              (validationError as any).isValidation = true;
+              const validationError = createValidationError("File validation failed");
               reject(validationError);
             }
           } else {
@@ -126,15 +147,15 @@ export function useFileUpload(): UseFileUploadReturn {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Upload failed";
-      const isValidationError = error instanceof Error && (error as any).isValidation;
+      const validationErr = isValidationError(error);
 
       setUploads(prev => new Map(prev.set(fileName, {
         fileName,
         progress: 0,
-        status: isValidationError ? "validation_error" : "error",
+        status: validationErr ? "validation_error" : "error",
         error: errorMessage,
-        errorDetails: isValidationError ? (error as any).details : undefined,
-        suggestion: isValidationError ? (error as any).suggestion : undefined,
+        errorDetails: validationErr ? error.details : undefined,
+        suggestion: validationErr ? error.suggestion : undefined,
       })));
 
       throw error;

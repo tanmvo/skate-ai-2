@@ -68,7 +68,7 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<DocumentProces
                       // Decode URI component and add space
                       try {
                         extractedText += decodeURIComponent(textRun.T) + ' ';
-                      } catch (decodeError) {
+                      } catch {
                         // If decoding fails, use the raw text
                         extractedText += textRun.T + ' ';
                       }
