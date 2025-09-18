@@ -24,7 +24,9 @@
       "Bash(npm:*)",
       "Bash(npx tsx:*)",
       "WebSearch",
-      "WebFetch(domain:posthog.com)"
+      "WebFetch(domain:posthog.com)",
+      "WebFetch(domain:notebooklm.google)",
+      "WebFetch(domain:dovetail.com)"
     ],
     "deny": []
   }

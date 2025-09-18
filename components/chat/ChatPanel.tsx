@@ -14,6 +14,7 @@ import { useChatManager } from "@/lib/hooks/useChatManager";
 import { useMessages } from "@/lib/hooks/useMessages";
 import { SimpleChatHeader } from "./SimpleChatHeader";
 import { useAnalytics } from "@/lib/analytics/hooks/use-analytics";
+import { sanitizeError, calculateRetryDelay, sleep, RetryState, DEFAULT_RETRY_STATE } from "@/lib/error-handling";
 
 interface ChatPanelProps {
   studyId: string;
@@ -26,6 +27,8 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [input, setInput] = useState('');
   const [messagesLoaded, setMessagesLoaded] = useState(false);
+  const [retryState, setRetryState] = useState<RetryState>(DEFAULT_RETRY_STATE);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   
   // Analytics tracking
   const { trackMessageCopy } = useAnalytics();
@@ -96,24 +99,62 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     onFinish: async () => {
       // Assistant messages are saved server-side, now invalidate SWR cache
       mutateMessages();
-      
+
+      // Clear retry state on successful completion
+      resetRetryState();
+      setStreamError(null);
+
       // Trigger title generation after 6 messages (3 exchanges)
       if (messages.length === 6 && currentChatId && currentChat?.title === 'New Chat') {
         generateTitleInBackground(currentChatId);
       }
     },
-    onError: (error) => {
+    onError: async (error) => {
       console.error('Chat error:', error);
-      
-      const errorMessage = 'Failed to send message. Please try again.';
-      
+
+      const sanitized = sanitizeError(error);
+
+      // Handle overloaded errors with automatic retry
+      if (sanitized.code === 'OVERLOADED_ERROR') {
+        if (retryState.attempt < retryState.maxAttempts) {
+          // Store the message for retry
+          if (!pendingMessage && input.trim()) {
+            setPendingMessage(input.trim());
+          }
+
+          setStreamError(`Claude is experiencing high load. Retrying in ${Math.ceil(calculateRetryDelay(retryState.attempt + 1) / 1000)} seconds...`);
+
+          // Start automatic retry
+          performRetry();
+          return;
+        } else {
+          // Max retries reached
+          setStreamError('Claude is currently overloaded. Please try again in a few minutes.');
+          resetRetryState();
+          toast.error('Claude is currently overloaded. Please try again in a few minutes.', {
+            action: {
+              label: "Retry",
+              onClick: () => {
+                setStreamError(null);
+                resetRetryState();
+                regenerate();
+              },
+            },
+          });
+          return;
+        }
+      }
+
+      // Reset retry state for non-overloaded errors
+      resetRetryState();
+
       if (error.message?.includes('rate limit')) {
         toast.error('Too many requests. Please wait a moment before trying again.');
       } else if (error.message?.includes('service temporarily unavailable')) {
         toast.error('AI service is temporarily unavailable. Please try again later.');
       } else {
-        setStreamError(errorMessage);
-        toast.error(errorMessage, {
+        setStreamError(sanitized.message);
+        toast.error(sanitized.message, {
           action: {
             label: "Retry",
             onClick: () => {
@@ -166,26 +207,70 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     }
   }, []);
 
+  // Retry logic for overloaded errors
+  const performRetry = useCallback(async () => {
+    if (!pendingMessage || retryState.attempt >= retryState.maxAttempts) return;
+
+    const nextAttempt = retryState.attempt + 1;
+    const delayMs = calculateRetryDelay(nextAttempt);
+
+    setRetryState(prev => ({
+      ...prev,
+      attempt: nextAttempt,
+      isRetrying: true,
+      retryCountdown: Math.ceil(delayMs / 1000)
+    }));
+
+    // Countdown timer
+    const countdownInterval = setInterval(() => {
+      setRetryState(prev => {
+        if (prev.retryCountdown <= 1) {
+          clearInterval(countdownInterval);
+          return { ...prev, retryCountdown: 0 };
+        }
+        return { ...prev, retryCountdown: prev.retryCountdown - 1 };
+      });
+    }, 1000);
+
+    await sleep(delayMs);
+
+    // Clear error state and retry
+    setStreamError(null);
+    sendMessage({
+      role: 'user',
+      parts: [{ type: 'text', text: pendingMessage }],
+    });
+  }, [pendingMessage, retryState.attempt, retryState.maxAttempts, sendMessage]);
+
+  const resetRetryState = useCallback(() => {
+    setRetryState(DEFAULT_RETRY_STATE);
+    setPendingMessage(null);
+  }, []);
+
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const handleSubmit = useCallback((event: React.FormEvent) => {
     event.preventDefault();
-    
-    if (status !== 'ready' || !input.trim()) return;
-    
+
+    if (status !== 'ready' || !input.trim() || retryState.isRetrying) return;
+
     const userMessage = input.trim();
-    
+
+    // Clear any previous retry state
+    resetRetryState();
+    setStreamError(null);
+
     // Send message using v5 API - user message saving is handled server-side
     sendMessage({
       role: 'user',
       parts: [{ type: 'text', text: userMessage }],
     });
-    
+
     setInput('');
     resetHeight();
-  }, [input, sendMessage, status, resetHeight]);
+  }, [input, sendMessage, status, resetHeight, retryState.isRetrying, resetRetryState]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -369,32 +454,33 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                 e.preventDefault();
-                if (status === 'ready' && input.trim()) {
+                if (status === 'ready' && input.trim() && !retryState.isRetrying) {
                   handleSubmit(e);
                 }
               }
             }}
-            placeholder="Ask a question about your documents..."
+            placeholder={retryState.isRetrying ? "Retrying..." : "Ask a question about your documents..."}
             className="min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700"
             rows={2}
-            disabled={status !== 'ready'}
+            disabled={status !== 'ready' || retryState.isRetrying}
           />
           
           <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-            {status !== 'ready' ? (
+            {status !== 'ready' || retryState.isRetrying ? (
               <Button
                 className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
                 onClick={(e) => {
                   e.preventDefault();
                   // Add stop functionality if needed
                 }}
+                disabled
               >
                 <RefreshCw className="h-3.5 w-3.5 animate-spin" />
               </Button>
             ) : (
               <Button
                 type="submit"
-                disabled={!input.trim() || status !== 'ready'}
+                disabled={!input.trim() || status !== 'ready' || retryState.isRetrying}
                 className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
                 onClick={(e) => {
                   e.preventDefault();
@@ -410,17 +496,22 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
       
       {/* Error messages positioned outside the form */}
       <div className="px-4 pb-4">
-        {(streamError) && (
+        {(streamError || retryState.isRetrying) && (
           <div className="flex items-center gap-2 mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
             <AlertCircle className="h-3 w-3 flex-shrink-0" />
-            <span>{streamError}</span>
-            {streamError && (
+            <span>
+              {retryState.isRetrying && retryState.retryCountdown > 0
+                ? `Claude is experiencing high load. Retrying in ${retryState.retryCountdown} seconds...`
+                : streamError}
+            </span>
+            {streamError && !retryState.isRetrying && (
               <Button
                 size="sm"
                 variant="ghost"
                 className="h-auto p-1 ml-auto text-destructive hover:text-destructive"
                 onClick={() => {
                   setStreamError(null);
+                  resetRetryState();
                   regenerate();
                 }}
               >

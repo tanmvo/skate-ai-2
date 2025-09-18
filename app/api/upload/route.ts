@@ -101,6 +101,33 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
+    // PRE-VALIDATE: Test text extraction before storing anything
+    console.log(`Pre-validating text extraction for ${file.name}...`);
+    const extractionResult = await extractTextFromBuffer(buffer, file.type, file.name);
+
+    if ('error' in extractionResult) {
+      // Extraction failed - reject the upload
+      console.error(`Upload rejected - text extraction failed for ${file.name}:`, extractionResult.error);
+
+      await trackErrorEvent('upload_error_occurred', {
+        errorType: 'TextExtractionError',
+        errorMessage: `Upload rejected: ${extractionResult.error}`,
+        endpoint: '/api/upload',
+        statusCode: 422,
+      }, userId);
+
+      return NextResponse.json(
+        {
+          error: "Document processing failed",
+          details: extractionResult.details || extractionResult.error,
+          suggestion: "This PDF may contain custom fonts, be scanned, or be image-based. Please try a different file format or use OCR tools first."
+        },
+        { status: 422 } // Unprocessable Entity
+      );
+    }
+
+    console.log(`Text extraction validated successfully for ${file.name} (${extractionResult.text.length} characters)`);
+
     // Store the file (pass request for header-based overrides)
     const storageResult = await storeFile(file.name, buffer, studyId, request);
 
@@ -126,8 +153,8 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    // Process the document asynchronously
-    processDocumentAsync(document.id, buffer, file.type, file.name, studyId, userId);
+    // Process the document asynchronously (we know extraction works now)
+    processDocumentAsync(document.id, buffer, file.type, file.name, studyId, userId, extractionResult.text);
 
     return NextResponse.json({
       success: true,
@@ -196,7 +223,8 @@ async function processDocumentAsync(
   mimeType: string,
   fileName: string,
   studyId: string,
-  userId: string
+  userId: string,
+  preExtractedText?: string
 ): Promise<void> {
   const processingStartTime = Date.now();
   
@@ -211,35 +239,8 @@ async function processDocumentAsync(
       fileSize: buffer.length,
     }, userId);
 
-    // Step 1: Extract text from the document
-    const extractionResult = await extractTextFromBuffer(buffer, mimeType, fileName);
-    
-    if (!('text' in extractionResult)) {
-      // Handle extraction failure
-      console.error(`Text extraction failed for ${documentId}:`, extractionResult.error);
-      
-      // Track processing failure
-      await trackDocumentUploadEvent('document_processing_failed', {
-        studyId,
-        fileName,
-        fileType: mimeType,
-        fileSize: buffer.length,
-        processingTimeMs: Date.now() - processingStartTime,
-        errorType: 'TextExtractionError',
-        errorMessage: extractionResult.error,
-      }, userId);
-      
-      await prisma.document.update({
-        where: { id: documentId },
-        data: { 
-          status: "FAILED",
-          extractedText: `Extraction failed: ${extractionResult.error}`,
-        },
-      });
-      return;
-    }
-
-    const extractedText = extractionResult.text;
+    // Use pre-extracted text (validation already passed)
+    const extractedText = preExtractedText!;
     console.log(`Extracted ${extractedText.length} characters from ${fileName}`);
 
     // Step 2: Update document with extracted text

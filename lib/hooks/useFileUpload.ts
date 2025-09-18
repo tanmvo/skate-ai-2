@@ -7,8 +7,10 @@ import { useState, useCallback } from "react";
 export interface UploadProgress {
   fileName: string;
   progress: number; // 0-100
-  status: "uploading" | "processing" | "completed" | "error";
+  status: "uploading" | "processing" | "completed" | "error" | "validation_error";
   error?: string;
+  errorDetails?: string;
+  suggestion?: string;
 }
 
 export interface UploadedFile {
@@ -82,6 +84,20 @@ export function useFileUpload(): UseFileUploadReturn {
             } catch {
               reject(new Error("Invalid response from server"));
             }
+          } else if (xhr.status === 422) {
+            // Validation error - file processing failed
+            try {
+              const response = JSON.parse(xhr.responseText);
+              const validationError = new Error(response.error || "File validation failed");
+              (validationError as any).isValidation = true;
+              (validationError as any).details = response.details;
+              (validationError as any).suggestion = response.suggestion;
+              reject(validationError);
+            } catch {
+              const validationError = new Error("File validation failed");
+              (validationError as any).isValidation = true;
+              reject(validationError);
+            }
           } else {
             try {
               const response = JSON.parse(xhr.responseText);
@@ -110,12 +126,15 @@ export function useFileUpload(): UseFileUploadReturn {
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Upload failed";
-      
+      const isValidationError = error instanceof Error && (error as any).isValidation;
+
       setUploads(prev => new Map(prev.set(fileName, {
         fileName,
         progress: 0,
-        status: "error",
+        status: isValidationError ? "validation_error" : "error",
         error: errorMessage,
+        errorDetails: isValidationError ? (error as any).details : undefined,
+        suggestion: isValidationError ? (error as any).suggestion : undefined,
       })));
 
       throw error;

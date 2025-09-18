@@ -51,6 +51,20 @@ export class ServiceUnavailableError extends ChatError {
   }
 }
 
+export class OverloadedError extends ChatError {
+  constructor(retryAfter?: number) {
+    super(
+      'Claude is experiencing high load. Retrying automatically...',
+      'OVERLOADED_ERROR',
+      529,
+      true
+    );
+    this.retryAfter = retryAfter;
+  }
+
+  retryAfter?: number;
+}
+
 export function sanitizeError(error: unknown): { message: string; code: string; retryable: boolean } {
   if (error instanceof ChatError) {
     return {
@@ -96,6 +110,15 @@ export function sanitizeError(error: unknown): { message: string; code: string; 
       return {
         message: 'Network error. Please check your connection.',
         code: 'NETWORK_ERROR',
+        retryable: true,
+      };
+    }
+
+    // Claude overloaded errors (from stream)
+    if (message.includes('overloaded_error') || message.includes('Overloaded')) {
+      return {
+        message: 'Claude is experiencing high load. Retrying automatically...',
+        code: 'OVERLOADED_ERROR',
         retryable: true,
       };
     }
@@ -199,3 +222,27 @@ setInterval(() => {
     }
   }
 }, 300000); // Cleanup every 5 minutes
+
+// Retry utilities for overloaded errors
+export function calculateRetryDelay(attempt: number): number {
+  // Exponential backoff: 1s, 2s, 4s
+  return Math.min(1000 * Math.pow(2, attempt - 1), 4000);
+}
+
+export function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+export interface RetryState {
+  attempt: number;
+  isRetrying: boolean;
+  retryCountdown: number;
+  maxAttempts: number;
+}
+
+export const DEFAULT_RETRY_STATE: RetryState = {
+  attempt: 0,
+  isRetrying: false,
+  retryCountdown: 0,
+  maxAttempts: 3,
+};

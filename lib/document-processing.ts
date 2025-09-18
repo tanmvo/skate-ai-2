@@ -40,15 +40,16 @@ interface PDFData {
 
 export async function extractTextFromPDF(buffer: Buffer): Promise<DocumentProcessingResult> {
   return new Promise((resolve) => {
+    console.log('Attempting PDF extraction with pdf2json...');
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const pdfParser = new (PDFParser as any)(null, 1);
-    
+
     pdfParser.on('pdfParser_dataError', (errData: PDFErrorData) => {
       console.error('PDF parsing error:', errData);
       resolve({
         success: false,
         error: 'Failed to parse PDF',
-        details: errData.parserError || 'Unknown PDF parsing error'
+        details: `This PDF may contain custom fonts (Type3), be scanned, or be image-based. Consider using OCR tools to extract text first. Error: ${errData.parserError || 'Unknown PDF parsing error'}`
       });
     });
 
@@ -56,7 +57,7 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<DocumentProces
       try {
         // Extract text from all pages
         let extractedText = '';
-        
+
         if (pdfData.Pages && Array.isArray(pdfData.Pages)) {
           for (const page of pdfData.Pages) {
             if (page.Texts && Array.isArray(page.Texts)) {
@@ -65,7 +66,12 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<DocumentProces
                   for (const textRun of textItem.R) {
                     if (textRun.T) {
                       // Decode URI component and add space
-                      extractedText += decodeURIComponent(textRun.T) + ' ';
+                      try {
+                        extractedText += decodeURIComponent(textRun.T) + ' ';
+                      } catch (decodeError) {
+                        // If decoding fails, use the raw text
+                        extractedText += textRun.T + ' ';
+                      }
                     }
                   }
                 }
@@ -80,7 +86,7 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<DocumentProces
           resolve({
             success: false,
             error: 'PDF contains no extractable text',
-            details: 'The document may be empty, scanned, or image-based'
+            details: 'This PDF may contain custom fonts (Type3), be scanned, or be image-based. Consider using OCR tools to extract text first.'
           });
           return;
         }
@@ -91,6 +97,7 @@ export async function extractTextFromPDF(buffer: Buffer): Promise<DocumentProces
           .replace(/[ \t]{2,}/g, ' ') // Reduce excessive spaces
           .trim();
 
+        console.log(`Successfully extracted ${cleanText.length} characters from PDF`);
         resolve({
           text: cleanText,
           metadata: {
