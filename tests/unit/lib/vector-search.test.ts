@@ -1,4 +1,10 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
+
+// Mock auth to prevent Next.js/Auth.js module resolution issues in tests
+vi.mock('@/lib/auth', () => ({
+  getCurrentUserId: vi.fn().mockResolvedValue('test-user-123')
+}));
+
 import {
   cosineSimilarity,
   formatSearchResults,

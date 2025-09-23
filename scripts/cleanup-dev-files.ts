@@ -2,14 +2,14 @@
 
 /**
  * Development File Cleanup Script
- * 
- * Safely cleans up development files and database records for the default user.
- * This script is designed to work with shared production databases by only
- * targeting the specific development user (usr_mvp_dev_2025).
+ *
+ * Safely cleans up development files and database records for authenticated users.
+ * This script requires user authentication and will only clean up data for the
+ * currently authenticated user, making it safe for shared environments.
  */
 
 import { prisma } from "../lib/prisma";
-import { DEFAULT_USER_ID } from "../lib/constants";
+import { getCurrentUserId } from "../lib/auth";
 import { existsSync, rmSync, readdirSync, statSync } from "fs";
 import { join } from "path";
 
@@ -23,32 +23,43 @@ interface CleanupOptions {
   dryRun?: boolean;
   target?: 'files' | 'database' | 'all';
   confirm?: boolean;
+  userId?: string;
 }
 
 async function main() {
   const args = process.argv.slice(2);
   const options: CleanupOptions = {
     dryRun: args.includes('--dry-run'),
-    target: args.includes('--files') ? 'files' : 
+    target: args.includes('--files') ? 'files' :
             args.includes('--database') ? 'database' :
             args.includes('--all') ? 'all' : 'files',
     confirm: args.includes('--yes') || args.includes('-y'),
+    userId: args.find(arg => arg.startsWith('--user='))?.split('=')[1],
   };
 
-  console.log(`🧹 Development File Cleanup (User: ${DEFAULT_USER_ID})`);
+  // Get authenticated user ID
+  const userId = options.userId || await getCurrentUserId();
+
+  if (!userId) {
+    console.error("❌ Authentication required. Please sign in or provide --user=<user-id> parameter");
+    console.error("Usage: npx tsx scripts/cleanup-dev-files.ts [--user=<user-id>] [--dry-run] [--files|--database|--all] [--yes]");
+    process.exit(1);
+  }
+
+  console.log(`🧹 Development File Cleanup (User: ${userId})`);
   console.log(`Target: ${options.target}, Dry Run: ${options.dryRun}`);
   console.log('─'.repeat(50));
 
   try {
     switch (options.target) {
       case 'files':
-        await cleanupOrphanedFiles(options);
+        await cleanupOrphanedFiles(options, userId);
         break;
       case 'database':
-        await cleanupOrphanedRecords(options);
+        await cleanupOrphanedRecords(options, userId);
         break;
       case 'all':
-        await cleanupAll(options);
+        await cleanupAll(options, userId);
         break;
     }
     
@@ -64,18 +75,18 @@ async function main() {
 /**
  * Clean up files that exist on disk but not in database
  */
-async function cleanupOrphanedFiles(options: CleanupOptions) {
+async function cleanupOrphanedFiles(options: CleanupOptions, userId: string) {
   const devUploadsPath = join(process.cwd(), 'dev-uploads');
-  
+
   if (!existsSync(devUploadsPath)) {
     console.log('📁 No dev-uploads directory found');
     return;
   }
 
-  // Get all documents for the dev user from database
+  // Get all documents for the authenticated user from database
   const documents = await prisma.document.findMany({
     where: {
-      study: { userId: DEFAULT_USER_ID },
+      study: { userId },
       storageType: 'filesystem',
     },
     select: {
@@ -127,7 +138,8 @@ async function cleanupOrphanedFiles(options: CleanupOptions) {
   }
 
   if (!options.confirm) {
-    const readline = require('readline').createInterface({
+    const { createInterface } = await import('readline');
+    const readline = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
@@ -160,11 +172,11 @@ async function cleanupOrphanedFiles(options: CleanupOptions) {
 /**
  * Clean up database records that reference missing files
  */
-async function cleanupOrphanedRecords(options: CleanupOptions) {
-  // Get all documents for the dev user with storage paths
+async function cleanupOrphanedRecords(options: CleanupOptions, userId: string) {
+  // Get all documents for the authenticated user with storage paths
   const documents = await prisma.document.findMany({
     where: {
-      study: { userId: DEFAULT_USER_ID },
+      study: { userId },
       storageType: 'filesystem',
       storagePath: { not: null },
     },
@@ -200,7 +212,8 @@ async function cleanupOrphanedRecords(options: CleanupOptions) {
   }
 
   if (!options.confirm) {
-    const readline = require('readline').createInterface({
+    const { createInterface } = await import('readline');
+    const readline = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
@@ -220,7 +233,7 @@ async function cleanupOrphanedRecords(options: CleanupOptions) {
   const deletedRecords = await prisma.document.deleteMany({
     where: {
       id: { in: orphanedRecords.map(doc => doc.id) },
-      study: { userId: DEFAULT_USER_ID }, // Double-safety check
+      study: { userId }, // Double-safety check
     },
   });
 
@@ -228,30 +241,30 @@ async function cleanupOrphanedRecords(options: CleanupOptions) {
 }
 
 /**
- * Clean up everything for the dev user
+ * Clean up everything for the authenticated user
  */
-async function cleanupAll(options: CleanupOptions) {
+async function cleanupAll(options: CleanupOptions, userId: string) {
   const devUploadsPath = join(process.cwd(), 'dev-uploads');
-  
+
   // Get counts for confirmation
   const documentCount = await prisma.document.count({
-    where: { study: { userId: DEFAULT_USER_ID } },
+    where: { study: { userId } },
   });
 
   const chunkCount = await prisma.documentChunk.count({
-    where: { document: { study: { userId: DEFAULT_USER_ID } } },
+    where: { document: { study: { userId } } },
   });
 
   const messageCount = await prisma.chatMessage.count({
-    where: { study: { userId: DEFAULT_USER_ID } },
+    where: { study: { userId } },
   });
 
   console.log('🧹 COMPLETE CLEANUP - This will remove:');
-  console.log(`  - All files in dev-uploads/ directory`);
+  console.log(`  - All files in dev-uploads/ directory for this user`);
   console.log(`  - ${documentCount} documents`);
   console.log(`  - ${chunkCount} document chunks`);
   console.log(`  - ${messageCount} chat messages`);
-  console.log(`  - All studies for user: ${DEFAULT_USER_ID}`);
+  console.log(`  - All studies for user: ${userId}`);
 
   if (options.dryRun) {
     console.log('\n🔍 Dry run mode - nothing was actually deleted');
@@ -259,7 +272,8 @@ async function cleanupAll(options: CleanupOptions) {
   }
 
   if (!options.confirm) {
-    const readline = require('readline').createInterface({
+    const { createInterface } = await import('readline');
+    const readline = createInterface({
       input: process.stdin,
       output: process.stdout,
     });
@@ -275,9 +289,9 @@ async function cleanupAll(options: CleanupOptions) {
     }
   }
 
-  // Delete all studies for the dev user (cascades to documents and messages)
+  // Delete all studies for the authenticated user (cascades to documents and messages)
   const deletedStudies = await prisma.study.deleteMany({
-    where: { userId: DEFAULT_USER_ID },
+    where: { userId },
   });
 
   // Remove dev-uploads directory

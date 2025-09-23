@@ -13,10 +13,7 @@ vi.mock('posthog-js/react', () => ({
   usePostHog: () => mockPostHog,
 }))
 
-// Mock constants
-vi.mock('@/lib/constants', () => ({
-  DEFAULT_USER_ID: 'test-user-123',
-}))
+// No longer need to mock constants since we removed DEFAULT_USER_ID
 
 describe('useAnalytics', () => {
   beforeEach(() => {
@@ -43,16 +40,14 @@ describe('useAnalytics', () => {
       })
     })
 
-    it('should use default user ID when none provided', () => {
+    it('should not identify user when no user ID provided', () => {
       const { result } = renderHook(() => useAnalytics())
-      
+
       act(() => {
         result.current.identify()
       })
 
-      expect(mockPostHog.identify).toHaveBeenCalledWith('test-user-123', {
-        timestamp: '2024-01-01T12:00:00.000Z',
-      })
+      expect(mockPostHog.identify).not.toHaveBeenCalled()
     })
   })
 

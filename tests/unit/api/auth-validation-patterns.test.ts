@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock Prisma - moved inside vi.mock to avoid hoisting issues
+// Mock Prisma
 vi.mock('@/lib/prisma', () => ({
   prisma: {
     study: {
@@ -12,47 +12,54 @@ vi.mock('@/lib/prisma', () => ({
   }
 }));
 
-// Mock constants
-vi.mock('@/lib/constants', () => ({
-  DEFAULT_USER_ID: 'usr_mvp_dev_2025',
-  DEFAULT_USER: {
-    id: 'usr_mvp_dev_2025',
-    name: 'MVP User',
-    email: 'mvp@example.com'
-  }
+// Mock Auth.js
+vi.mock('@/auth', () => ({
+  auth: vi.fn()
 }));
 
 // Import the actual auth functions to test
 import { getCurrentUserId, validateStudyOwnership, validateDocumentOwnership } from '@/lib/auth';
+import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
 // Get typed mocks
 const mockPrismaStudyFindFirst = vi.mocked(prisma.study.findFirst);
 const mockPrismaDocumentFindFirst = vi.mocked(prisma.document.findFirst);
+const mockAuth = vi.mocked(auth);
 
 describe('Auth Validation Patterns', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Setup default auth mock
+    mockAuth.mockResolvedValue({
+      user: { id: 'test-user-123' }
+    } as any);
   });
 
   describe('getCurrentUserId', () => {
-    it('should return the default user ID consistently', () => {
-      const userId1 = getCurrentUserId();
-      const userId2 = getCurrentUserId();
-      
-      expect(userId1).toBe('usr_mvp_dev_2025');
-      expect(userId2).toBe('usr_mvp_dev_2025');
-      expect(userId1).toBe(userId2);
+    it('should return the authenticated user ID from Auth.js session', async () => {
+      const userId = await getCurrentUserId();
+
+      expect(userId).toBe('test-user-123');
+      expect(mockAuth).toHaveBeenCalled();
     });
 
-    it('should provide consistent user scoping for rate limiting', () => {
-      const userId = getCurrentUserId();
+    it('should return null when no session exists', async () => {
+      mockAuth.mockResolvedValue(null);
+
+      const userId = await getCurrentUserId();
+
+      expect(userId).toBe(null);
+    });
+
+    it('should provide consistent user scoping for rate limiting', async () => {
+      const userId = await getCurrentUserId();
       const studyId = 'study_123';
-      
+
       // Test rate limiting key pattern used across routes
       const rateLimitKey = `chat:${userId}:${studyId}`;
-      
-      expect(rateLimitKey).toBe('chat:usr_mvp_dev_2025:study_123');
+
+      expect(rateLimitKey).toBe('chat:test-user-123:study_123');
     });
   });
 
@@ -60,9 +67,9 @@ describe('Auth Validation Patterns', () => {
     it('should validate study ownership correctly', async () => {
       mockPrismaStudyFindFirst.mockResolvedValue({
         id: 'study_123',
-        userId: 'usr_mvp_dev_2025',
+        userId: 'test-user-123',
         name: 'Test Study'
-      });
+      } as any);
 
       const isValid = await validateStudyOwnership('study_123');
 
@@ -70,7 +77,7 @@ describe('Auth Validation Patterns', () => {
       expect(mockPrismaStudyFindFirst).toHaveBeenCalledWith({
         where: {
           id: 'study_123',
-          userId: 'usr_mvp_dev_2025'
+          userId: 'test-user-123'
         }
       });
     });
@@ -84,7 +91,7 @@ describe('Auth Validation Patterns', () => {
       expect(mockPrismaStudyFindFirst).toHaveBeenCalledWith({
         where: {
           id: 'nonexistent_study',
-          userId: 'usr_mvp_dev_2025'
+          userId: 'test-user-123'
         }
       });
     });
@@ -107,7 +114,7 @@ describe('Auth Validation Patterns', () => {
       expect(mockPrismaStudyFindFirst).toHaveBeenCalledWith({
         where: {
           id: 'study_owned_by_other_user',
-          userId: 'usr_mvp_dev_2025' // Must match current user
+          userId: 'test-user-123' // Must match current user
         }
       });
     });
@@ -119,7 +126,7 @@ describe('Auth Validation Patterns', () => {
         id: 'doc_123',
         fileName: 'test.pdf',
         study: {
-          userId: 'usr_mvp_dev_2025'
+          userId: 'test-user-123'
         }
       });
 
@@ -130,7 +137,7 @@ describe('Auth Validation Patterns', () => {
         where: {
           id: 'doc_123',
           study: {
-            userId: 'usr_mvp_dev_2025'
+            userId: 'test-user-123'
           }
         }
       });
@@ -146,7 +153,7 @@ describe('Auth Validation Patterns', () => {
         where: {
           id: 'doc_owned_by_other_user',
           study: {
-            userId: 'usr_mvp_dev_2025'
+            userId: 'test-user-123'
           }
         }
       });
@@ -175,11 +182,11 @@ describe('Auth Validation Patterns', () => {
     });
 
     it('should maintain user scoping consistency across validation methods', async () => {
-      const userId = getCurrentUserId();
+      const userId = await getCurrentUserId();
 
       // Mock successful validations
-      mockPrismaStudyFindFirst.mockResolvedValue({ id: 'study_123' });
-      mockPrismaDocumentFindFirst.mockResolvedValue({ id: 'doc_123' });
+      mockPrismaStudyFindFirst.mockResolvedValue({ id: 'study_123' } as any);
+      mockPrismaDocumentFindFirst.mockResolvedValue({ id: 'doc_123' } as any);
 
       await validateStudyOwnership('study_123');
       await validateDocumentOwnership('doc_123');
@@ -204,10 +211,10 @@ describe('Auth Validation Patterns', () => {
       // 2. Validate ownership  
       // 3. Return 404 if not authorized (not 403, to avoid data leakage)
       
-      const userId = getCurrentUserId();
+      const userId = await getCurrentUserId();
       mockPrismaStudyFindFirst.mockResolvedValue(null);
 
-      expect(userId).toBe('usr_mvp_dev_2025');
+      expect(userId).toBe('test-user-123');
       
       const isAuthorized = await validateStudyOwnership('study_123');
       expect(isAuthorized).toBe(false);
@@ -217,12 +224,12 @@ describe('Auth Validation Patterns', () => {
     });
   });
 
-  describe('MVP Mode Security Considerations', () => {
-    it('should use hardcoded user ID for MVP development', () => {
-      const userId = getCurrentUserId();
-      
-      expect(userId).toBe('usr_mvp_dev_2025');
-      // In production, this would validate against session/JWT tokens
+  describe('Auth.js Security Considerations', () => {
+    it('should use Auth.js session for user authentication', async () => {
+      const userId = await getCurrentUserId();
+
+      expect(userId).toBe('test-user-123');
+      expect(mockAuth).toHaveBeenCalled();
     });
 
     it('should scope all database queries by current user', async () => {
@@ -233,12 +240,11 @@ describe('Auth Validation Patterns', () => {
       // Verify that the query includes userId filter
       const call = mockPrismaStudyFindFirst.mock.calls[0][0];
       expect(call.where).toHaveProperty('userId');
-      expect(call.where.userId).toBe('usr_mvp_dev_2025');
+      expect(call.where.userId).toBe('test-user-123');
     });
 
-    it('should prevent cross-user data access even in MVP mode', async () => {
-      // Even though we use a hardcoded user, the validation logic
-      // should still prevent access to other users' data
+    it('should prevent cross-user data access with Auth.js', async () => {
+      // Auth.js ensures validation logic prevents access to other users' data
       mockPrismaStudyFindFirst.mockResolvedValue(null);
       
       const result = await validateStudyOwnership('study_from_different_user');
@@ -247,7 +253,7 @@ describe('Auth Validation Patterns', () => {
       expect(mockPrismaStudyFindFirst).toHaveBeenCalledWith({
         where: {
           id: 'study_from_different_user',
-          userId: 'usr_mvp_dev_2025' // Still enforces user scoping
+          userId: 'test-user-123' // Still enforces user scoping
         }
       });
     });

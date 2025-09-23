@@ -1,19 +1,8 @@
 /**
  * Application Constants
- * 
- * This file contains constants used throughout the application,
- * including user authentication for development mode.
+ *
+ * This file contains constants used throughout the application.
  */
-
-// Default user for MVP development mode
-// All studies, documents, and chat messages will be associated with this user
-export const DEFAULT_USER_ID = "usr_mvp_dev_2025";
-
-export const DEFAULT_USER = {
-  id: DEFAULT_USER_ID,
-  name: "MVP Developer",
-  email: "dev@skateai.com",
-} as const;
 
 // File upload limits
 export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB

@@ -1,8 +1,15 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { 
-  validateSearchParameters, 
-  formatSearchToolResults, 
-  searchToolDefinitions 
+
+// Mock auth to prevent Next.js/Auth.js module resolution issues in tests
+vi.mock('@/lib/auth', () => ({
+  getCurrentUserId: vi.fn().mockResolvedValue('test-user-123'),
+  requireAuth: vi.fn().mockResolvedValue('test-user-123')
+}));
+
+import {
+  validateSearchParameters,
+  formatSearchToolResults,
+  searchToolDefinitions
 } from '@/lib/llm-tools/search-tools';
 import { getCacheStats, clearAllCache, metadataCache } from '@/lib/metadata-cache';
 import { formatDocumentList, extractDocumentReferences, shouldUseSpecificDocuments } from '@/lib/metadata-context';

@@ -1,14 +1,15 @@
 'use client'
 
 import { usePostHog } from 'posthog-js/react'
-import { DEFAULT_USER_ID } from '@/lib/constants'
 
 export const useAnalytics = () => {
   const posthog = usePostHog()
 
   const identify = (userId?: string, properties?: Record<string, unknown>) => {
-    const actualUserId = userId || DEFAULT_USER_ID
-    posthog?.identify(actualUserId, {
+    // Only identify authenticated users - analytics disabled for unauthenticated users
+    if (!userId) return
+
+    posthog?.identify(userId, {
       ...properties,
       timestamp: new Date().toISOString(),
     })
