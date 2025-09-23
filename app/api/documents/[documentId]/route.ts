@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserId, validateDocumentOwnership } from "@/lib/auth";
+import { requireAuth, validateDocumentOwnership } from "@/lib/auth";
 import { deleteDocumentFiles } from "@/lib/file-storage/cleanup";
 
 export async function GET(
@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const params = await context.params;
   try {
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
     const documentId = params.documentId;
 
     // Validate ownership
@@ -60,7 +60,7 @@ export async function PUT(
 ) {
   const params = await context.params;
   try {
-    getCurrentUserId(); // Validate user authentication
+    await requireAuth(); // Validate user authentication
     const documentId = params.documentId;
     const { fileName, description } = await request.json();
 
@@ -109,7 +109,7 @@ export async function DELETE(
 ) {
   const params = await context.params;
   try {
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
     const documentId = params.documentId;
 
     // Validate ownership and get document info for cleanup

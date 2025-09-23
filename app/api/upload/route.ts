@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserId, validateStudyOwnership } from "@/lib/auth";
+import { requireAuth, validateStudyOwnership } from "@/lib/auth";
 import { storeFile, validateFile } from "@/lib/file-storage";
 import { extractTextFromBuffer } from "@/lib/document-processing";
 import { chunkText } from "@/lib/document-chunking";
@@ -28,7 +28,7 @@ function determineStorageType(request: NextRequest): string {
 
 export async function POST(request: NextRequest) {
   // const startTime = Date.now(); // TODO: Use for performance tracking
-  const userId = getCurrentUserId();
+  const userId = await requireAuth();
   
   try {
     // Parse the multipart form data

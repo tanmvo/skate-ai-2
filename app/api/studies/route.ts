@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserId } from "@/lib/auth";
+import { requireAuth } from "@/lib/auth";
 import { trackStudyEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
 
 export async function GET() {
   try {
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
     
     const studies = await prisma.study.findMany({
       where: {
@@ -27,7 +27,15 @@ export async function GET() {
     return NextResponse.json(studies);
   } catch (error) {
     console.error("Error fetching studies:", error);
-    
+
+    // Handle authentication errors
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
     await trackErrorEvent('api_error_occurred', {
       errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
       errorMessage: error instanceof Error ? error.message : 'Unknown error fetching studies',
@@ -35,7 +43,7 @@ export async function GET() {
       statusCode: 500,
       stackTrace: error instanceof Error ? error.stack : undefined,
     });
-    
+
     return NextResponse.json(
       { error: "Failed to fetch studies" },
       { status: 500 }
@@ -54,7 +62,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
 
     const study = await prisma.study.create({
       data: {
@@ -82,7 +90,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(study, { status: 201 });
   } catch (error) {
     console.error("Error creating study:", error);
-    
+
+    // Handle authentication errors
+    if (error instanceof Error && error.message === 'Authentication required') {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 }
+      );
+    }
+
     await trackErrorEvent('api_error_occurred', {
       errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
       errorMessage: error instanceof Error ? error.message : 'Unknown error creating study',
@@ -90,7 +106,7 @@ export async function POST(request: NextRequest) {
       statusCode: 500,
       stackTrace: error instanceof Error ? error.stack : undefined,
     });
-    
+
     return NextResponse.json(
       { error: "Failed to create study" },
       { status: 500 }

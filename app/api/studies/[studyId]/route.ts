@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUserId, validateStudyOwnership } from "@/lib/auth";
+import { requireAuth, validateStudyOwnership } from "@/lib/auth";
 import { trackStudyEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
 
 export async function GET(
@@ -9,7 +9,7 @@ export async function GET(
 ) {
   const params = await context.params;
   try {
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
     
     // Validate user owns this study
     const isOwner = await validateStudyOwnership(params.studyId);
@@ -90,7 +90,7 @@ export async function PUT(
       );
     }
 
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
     
     // Validate user owns this study
     const isOwner = await validateStudyOwnership(params.studyId);
@@ -167,7 +167,7 @@ export async function DELETE(
 ) {
   const params = await context.params;
   try {
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
     
     // Validate user owns this study
     const isOwner = await validateStudyOwnership(params.studyId);

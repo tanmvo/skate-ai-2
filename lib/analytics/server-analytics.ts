@@ -24,8 +24,14 @@ export async function trackServerEvent(
   userId?: string
 ) {
   try {
-    const actualUserId = userId || getCurrentUserId()
-    
+    const actualUserId = userId || (await getCurrentUserId())
+
+    // Skip tracking if no user ID available
+    if (!actualUserId) {
+      console.log('Skipping analytics event - no user ID available:', event)
+      return
+    }
+
     serverPostHog.capture({
       distinctId: actualUserId,
       event,

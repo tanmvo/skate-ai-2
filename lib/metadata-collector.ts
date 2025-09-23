@@ -25,7 +25,8 @@ export async function getStudyMetadata(studyId: string, useCache: boolean = true
 
 async function fetchStudyMetadata(studyId: string): Promise<StudyMetadata | null> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) return null;
     
     const study = await prisma.study.findFirst({
       where: {
@@ -105,7 +106,8 @@ async function fetchStudyMetadata(studyId: string): Promise<StudyMetadata | null
 
 export async function getDocumentMetadata(documentIds: string[]): Promise<DocumentMetadata[]> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) return [];
     
     if (documentIds.length === 0) {
       return [];
@@ -186,7 +188,8 @@ export async function getMetadataContext(studyId: string): Promise<MetadataConte
 
 export async function getDocumentsByStudy(studyId: string): Promise<DocumentMetadata[]> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) return [];
     
     const documents = await prisma.document.findMany({
       where: {

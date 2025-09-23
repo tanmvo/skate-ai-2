@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { validateStudyOwnership, getCurrentUserId } from "@/lib/auth";
+import { validateStudyOwnership, requireAuth } from "@/lib/auth";
 
 export async function GET(
   request: NextRequest,
@@ -62,7 +62,7 @@ export async function POST(
       );
     }
 
-    const userId = getCurrentUserId();
+    const userId = await requireAuth();
 
     const chat = await prisma.chat.create({
       data: {

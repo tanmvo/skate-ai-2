@@ -4,7 +4,8 @@ import { DocumentReference } from "./types/metadata";
 
 export async function getStudies() {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) return [];
     const studies = await prisma.study.findMany({
       where: {
         userId,
@@ -30,7 +31,8 @@ export async function getStudies() {
 
 export async function getStudy(studyId: string) {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     const study = await prisma.study.findFirst({
       where: { 
         id: studyId,
@@ -60,7 +62,8 @@ export async function getStudy(studyId: string) {
 
 export async function createStudy(name: string) {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     const study = await prisma.study.create({
       data: { 
         name,
@@ -84,7 +87,8 @@ export async function createStudy(name: string) {
 
 export async function deleteStudy(studyId: string) {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     const result = await prisma.study.deleteMany({
       where: { 
         id: studyId,
@@ -105,7 +109,8 @@ export async function deleteStudy(studyId: string) {
 
 export async function getStudyDocumentReferences(studyId: string): Promise<DocumentReference[]> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     const documents = await prisma.document.findMany({
       where: {
@@ -137,7 +142,8 @@ export async function getStudyDocumentReferences(studyId: string): Promise<Docum
 
 export async function getDocumentNames(documentIds: string[]): Promise<Record<string, string>> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     if (documentIds.length === 0) {
       return {};
@@ -172,7 +178,8 @@ export async function getStudyStats(studyId: string): Promise<{
   chunksWithEmbeddings: number;
 }> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     const study = await prisma.study.findFirst({
       where: {
@@ -219,7 +226,8 @@ export async function getStudyStats(studyId: string): Promise<{
 
 export async function validateDocumentAccess(documentIds: string[], studyId: string): Promise<boolean> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     const count = await prisma.document.count({
       where: {
@@ -255,7 +263,8 @@ export async function findDocumentIdsByNames(
   studyId: string
 ): Promise<DocumentLookupResult> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     if (documentNames.length === 0) {
       throw new Error('No document names provided');
@@ -361,7 +370,8 @@ export async function getStudyDocumentContext(studyId: string): Promise<{
   availableNames: string[];
 }> {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     const documents = await prisma.document.findMany({
       where: {
@@ -398,7 +408,8 @@ export async function getStudyDocumentContext(studyId: string): Promise<{
 
 export async function getStudyChats(studyId: string) {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     const chats = await prisma.chat.findMany({
       where: {
@@ -426,7 +437,8 @@ export async function getStudyChats(studyId: string) {
 
 export async function ensureDefaultChat(studyId: string) {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     // Check if study has any chats
     const existingChat = await prisma.chat.findFirst({
@@ -465,7 +477,8 @@ export async function ensureDefaultChat(studyId: string) {
 
 export async function getChat(chatId: string) {
   try {
-    const userId = getCurrentUserId();
+    const userId = await getCurrentUserId();
+    if (!userId) throw new Error('Authentication required');
     
     const chat = await prisma.chat.findFirst({
       where: {

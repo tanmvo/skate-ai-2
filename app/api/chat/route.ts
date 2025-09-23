@@ -1,7 +1,7 @@
 import { streamText, createUIMessageStream, smoothStream, convertToModelMessages, JsonToSseTransformStream, stepCountIs } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { NextRequest } from 'next/server';
-import { validateStudyOwnership, getCurrentUserId } from '@/lib/auth';
+import { requireAuth, validateChatOwnership } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { 
   sanitizeError, 
@@ -103,15 +103,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get chat and validate ownership via study
-    const chat = await prisma.chat.findUnique({
-      where: { id: chatId },
-      include: { study: true }
-    });
+    // Authenticate user first
+    const userId = await requireAuth();
+
+    // Validate chat ownership using consistent helper pattern
+    const chat = await validateChatOwnership(chatId);
 
     if (!chat) {
       return Response.json(
-        { error: 'Chat not found' },
+        { error: 'Study not found or access denied' },
         { status: 404 }
       );
     }
@@ -119,21 +119,11 @@ export async function POST(req: NextRequest) {
     const studyId = chat.studyId;
 
     // Rate limiting check
-    const userId = getCurrentUserId();
     const rateLimitKey = `chat:${userId}:${studyId}`;
     const rateCheck = checkRateLimit(rateLimitKey, 20, 60000); // 20 requests per minute
     
     if (!rateCheck.allowed) {
       throw new RateLimitError(rateCheck.retryAfter);
-    }
-
-    // Validate user owns the study
-    const isOwner = await validateStudyOwnership(studyId);
-    if (!isOwner) {
-      return Response.json(
-        { error: 'Study not found' },
-        { status: 404 }
-      );
     }
 
     // Validate that the message is from user
@@ -434,6 +424,14 @@ CRITICAL: After executing any tools, you MUST continue with your analysis and pr
                 
                 if (!textContent && !toolCalls.length) continue;
                 
+                // Re-validate chat ownership before saving assistant message
+                const chatExists = await validateChatOwnership(chatId);
+
+                if (!chatExists) {
+                  console.error('Chat ownership validation failed during assistant message save');
+                  continue; // Skip this message but continue processing
+                }
+
                 await prisma.chatMessage.create({
                   data: {
                     role: 'ASSISTANT',

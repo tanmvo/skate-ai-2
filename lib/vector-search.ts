@@ -52,7 +52,8 @@ export async function findRelevantChunks(
   options: Partial<SearchOptions> = {}
 ): Promise<SearchResult[]> {
   const config = { ...DEFAULT_SEARCH_OPTIONS, ...options };
-  const userId = getCurrentUserId();
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
 
   try {
     // Generate embedding for the query
@@ -154,7 +155,8 @@ export async function findSimilarChunks(
   options: Partial<SearchOptions> = {}
 ): Promise<SearchResult[]> {
   const config = { ...DEFAULT_SEARCH_OPTIONS, ...options };
-  const userId = getCurrentUserId();
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
 
   try {
     // Get the source chunk
@@ -197,7 +199,8 @@ async function findRelevantChunksWithEmbedding(
   options: SearchOptions,
   excludeChunkId?: string
 ): Promise<SearchResult[]> {
-  const userId = getCurrentUserId();
+  const userId = await getCurrentUserId();
+  if (!userId) return [];
 
   const whereClause: {
     document: {
@@ -301,7 +304,13 @@ export async function getEmbeddingStats(studyId?: string): Promise<{
   documentsWithEmbeddings: number;
   averageChunkLength: number;
 }> {
-  const userId = getCurrentUserId();
+  const userId = await getCurrentUserId();
+  if (!userId) return {
+    totalChunks: 0,
+    chunksWithEmbeddings: 0,
+    documentsWithEmbeddings: 0,
+    averageChunkLength: 0
+  };
 
   const whereClause: {
     document: {

@@ -1,58 +1,66 @@
 /**
- * Authentication utilities for MVP development mode
- * 
- * This provides basic user validation and security checks
- * for the single-user development environment.
+ * Authentication utilities with Auth.js integration
+ *
+ * This provides authentication and security checks using Auth.js
+ * with support for both the transition period and new multi-user system.
  */
 
-import { prisma } from "./prisma";
-import { DEFAULT_USER, DEFAULT_USER_ID } from "./constants";
+import { auth } from "@/auth"
+import { prisma } from "./prisma"
+import bcrypt from "bcryptjs"
 
 /**
- * Get the current user (hardcoded for MVP)
- * In production, this would validate against a session/token
+ * Get the current authenticated user ID
+ * Replaces hardcoded getCurrentUserId() with Auth.js session
  */
-export function getCurrentUserId(): string {
-  return DEFAULT_USER_ID;
+export async function getCurrentUserId(): Promise<string | null> {
+  const session = await auth()
+  return session?.user?.id || null
 }
 
 /**
- * Ensure the default user exists in the database
- * Call this during app initialization
+ * Get the current authenticated user ID with error handling
+ * For API routes that require authentication
  */
-export async function ensureDefaultUser() {
-  try {
-    const existingUser = await prisma.user.findUnique({
-      where: { id: DEFAULT_USER_ID },
-    });
-
-    if (!existingUser) {
-      await prisma.user.create({
-        data: {
-          id: DEFAULT_USER_ID,
-          name: DEFAULT_USER.name,
-          email: DEFAULT_USER.email,
-        },
-      });
-      console.log("✓ Default user created:", DEFAULT_USER.email);
-    } else {
-      console.log("✓ Default user exists:", existingUser.email);
-    }
-  } catch (error) {
-    console.error("Failed to ensure default user:", error);
-    throw error;
+export async function requireAuth(): Promise<string> {
+  const userId = await getCurrentUserId()
+  if (!userId) {
+    throw new Error('Authentication required')
   }
+  return userId
 }
+
+/**
+ * Create a new user with email/password
+ */
+export async function createUserWithPassword(email: string, password: string, name?: string) {
+  const hashedPassword = await bcrypt.hash(password, 12)
+
+  const user = await prisma.user.create({
+    data: {
+      email,
+      password: hashedPassword,
+      name,
+      emailVerified: new Date(), // Auto-verify for signup
+    }
+  })
+
+  return user
+}
+
 
 /**
  * Validate that a study belongs to the current user
  */
 export async function validateStudyOwnership(studyId: string): Promise<boolean> {
   try {
+    const userId = await getCurrentUserId()
+    if (!userId) return false
+
     const study = await prisma.study.findFirst({
       where: {
         id: studyId,
-        userId: getCurrentUserId(),
+        userId: userId,
       },
     });
     return study !== null;
@@ -67,11 +75,14 @@ export async function validateStudyOwnership(studyId: string): Promise<boolean> 
  */
 export async function validateDocumentOwnership(documentId: string): Promise<boolean> {
   try {
+    const userId = await getCurrentUserId()
+    if (!userId) return false
+
     const document = await prisma.document.findFirst({
       where: {
         id: documentId,
         study: {
-          userId: getCurrentUserId(),
+          userId: userId,
         },
       },
     });
@@ -98,9 +109,12 @@ export async function getUserStudies(options?: {
     updatedAt?: "asc" | "desc";
   };
 }) {
+  const userId = await getCurrentUserId()
+  if (!userId) return []
+
   return prisma.study.findMany({
     where: {
-      userId: getCurrentUserId(),
+      userId: userId,
     },
     ...options,
   });
@@ -121,11 +135,33 @@ export async function getUserStudy(studyId: string, options?: {
     };
   };
 }) {
+  const userId = await getCurrentUserId()
+  if (!userId) return null
+
   return prisma.study.findFirst({
     where: {
       id: studyId,
-      userId: getCurrentUserId(),
+      userId: userId,
     },
     ...options,
+  });
+}
+
+/**
+ * Validate that a chat belongs to the current user via study ownership
+ * Returns the chat with study included, or null if not found/not owned
+ */
+export async function validateChatOwnership(chatId: string) {
+  const userId = await getCurrentUserId()
+  if (!userId) return null
+
+  return prisma.chat.findUnique({
+    where: {
+      id: chatId,
+      study: {
+        userId: userId,
+      },
+    },
+    include: { study: true }
   });
 }
