@@ -2,11 +2,12 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Microscope } from "lucide-react";
+import { Plus, Microscope, LogOut } from "lucide-react";
 import { StudyCard } from "@/components/study/StudyCard";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useStudies } from "@/lib/hooks/useStudies";
+import { signOut } from "next-auth/react";
 
 export default function StudiesPage() {
   const [creating, setCreating] = useState(false);
@@ -42,10 +43,20 @@ export default function StudiesPage() {
             <Microscope className="h-6 w-6" />
             <h1 className="text-xl font-semibold">Skate AI</h1>
           </div>
-          <Button onClick={handleCreateStudy} disabled={creating} className="gap-2">
-            <Plus className="h-4 w-4" />
-            {creating ? 'Creating...' : 'Create'}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={handleCreateStudy} disabled={creating} className="gap-2">
+              <Plus className="h-4 w-4" />
+              {creating ? 'Creating...' : 'Create'}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => signOut({ callbackUrl: '/auth/signin' })}
+              className="gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </header>
 

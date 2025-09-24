@@ -7,8 +7,10 @@ import { initPostHog } from '@/lib/analytics/posthog-config'
 
 export function ConsentBanner() {
   const [showBanner, setShowBanner] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     const consent = localStorage.getItem('analytics-consent')
     if (!consent) {
       setShowBanner(true)
@@ -30,7 +32,7 @@ export function ConsentBanner() {
     setShowBanner(false)
   }
 
-  if (!showBanner) {
+  if (!mounted || !showBanner) {
     return null
   }
 

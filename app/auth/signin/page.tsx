@@ -12,14 +12,24 @@ export default function SignInPage() {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [mounted, setMounted] = useState(false)
 
-  // Track page visit
+  // Track page visit and handle mounting
   useEffect(() => {
+    setMounted(true)
     analytics.trackAuthPageVisit('signin')
   }, [analytics])
 
-  if (session) {
-    redirect('/')
+  // Handle redirect after component has mounted
+  useEffect(() => {
+    if (mounted && session) {
+      redirect('/')
+    }
+  }, [mounted, session])
+
+  // Don't render until mounted to avoid hydration mismatch
+  if (!mounted) {
+    return null
   }
 
   const handleEmailSignIn = async (e: React.FormEvent) => {

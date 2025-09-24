@@ -75,8 +75,11 @@ export const useAnalytics = () => {
   }
 
   const trackPageView = (pageName: string, path: string) => {
+    // Only access window if we're in the browser
+    const currentUrl = typeof window !== 'undefined' ? window.location.href : ''
+
     posthog?.capture('$pageview', {
-      $current_url: window.location.href,
+      $current_url: currentUrl,
       page_name: pageName,
       path: path,
     })
@@ -90,9 +93,11 @@ export const useAnalytics = () => {
 
   // Authentication tracking methods
   const trackAuthPageVisit = (page: 'signin' | 'signup') => {
+    // Only access document if we're in the browser
+    const referrer = typeof window !== 'undefined' ? (document.referrer || 'direct') : 'direct'
     track('auth_page_visit', {
       page_type: page,
-      referrer: document.referrer || 'direct',
+      referrer,
       timestamp: new Date().toISOString(),
     })
   }
@@ -130,9 +135,13 @@ export const useAnalytics = () => {
   }
 
   const trackSessionStart = () => {
+    // Only access browser APIs if we're in the browser
+    const referrer = typeof window !== 'undefined' ? document.referrer : ''
+    const userAgent = typeof window !== 'undefined' ? navigator.userAgent : ''
+
     track('session_started', {
-      referrer: document.referrer,
-      user_agent: navigator.userAgent,
+      referrer,
+      user_agent: userAgent,
     })
   }
 
