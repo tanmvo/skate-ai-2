@@ -61,20 +61,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Track successful authentication
         if (account) {
           const authMethod = account.provider === 'google' ? 'google' : 'email'
-          const eventType = user.emailVerified ? 'auth_signin_success' : 'auth_signup_success'
+          // Check if this is a new signup or existing signin
+          // For AdapterUser (from database), emailVerified exists; for new User it doesn't
+          const isExistingUser = 'emailVerified' in user && user.emailVerified
+          const eventType = isExistingUser ? 'auth_signin_success' : 'auth_signup_success'
 
           await trackAuthSuccess(eventType, {
             method: authMethod,
             user_id: user.id,
             email_domain: user.email ? getEmailDomain(user.email) : undefined,
-            signup_source: authMethod === 'google' ? 'google_oauth' : 'direct_link',
+            signup_source: authMethod === 'google' ? 'organic' : 'direct_link',
           }, user.id)
 
           // Track Google OAuth specific events
           if (account.provider === 'google') {
             await trackGoogleOAuthEvent('google_oauth_success', {
-              callback_url: account.callbackUrl,
-              state: account.state,
+              callback_url: typeof account.callbackUrl === 'string' ? account.callbackUrl : undefined,
+              state: typeof account.state === 'string' ? account.state : undefined,
             })
           }
         }

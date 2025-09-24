@@ -144,7 +144,7 @@ export function getEmailDomain(email: string): string {
 /**
  * Get error type from error message for consistent categorization
  */
-export function categorizeAuthError(error: string): string {
+export function categorizeAuthError(error: string): 'validation_failed' | 'duplicate_email' | 'wrong_credentials' | 'google_oauth_failed' | 'rate_limited' | 'network_error' | 'server_error' {
   const errorLower = error.toLowerCase()
 
   if (errorLower.includes('email') && errorLower.includes('exists')) {
