@@ -88,6 +88,47 @@ export const useAnalytics = () => {
     })
   }
 
+  // Authentication tracking methods
+  const trackAuthPageVisit = (page: 'signin' | 'signup') => {
+    track('auth_page_visit', {
+      page_type: page,
+      referrer: document.referrer || 'direct',
+      timestamp: new Date().toISOString(),
+    })
+  }
+
+  const trackAuthMethodAttempt = (method: 'google' | 'email', action: 'click' | 'start' | 'submit', page: 'signin' | 'signup') => {
+    track('auth_method_attempt', {
+      auth_method: method,
+      action_type: action,
+      page_type: page,
+    })
+  }
+
+  const trackAuthSuccess = (method: 'google' | 'email', page: 'signin' | 'signup') => {
+    track('auth_success_client', {
+      auth_method: method,
+      page_type: page,
+    })
+  }
+
+  const trackAuthError = (method: 'google' | 'email', errorType: string, errorMessage: string, page: 'signin' | 'signup') => {
+    track('auth_error_client', {
+      auth_method: method,
+      error_type: errorType,
+      error_message: errorMessage,
+      page_type: page,
+    })
+  }
+
+  const trackValidationError = (field: string, errorMessage: string, page: 'signin' | 'signup') => {
+    track('auth_validation_error', {
+      field_name: field,
+      error_message: errorMessage,
+      page_type: page,
+    })
+  }
+
   const trackSessionStart = () => {
     track('session_started', {
       referrer: document.referrer,
@@ -107,5 +148,11 @@ export const useAnalytics = () => {
     trackPageView,
     trackUserSignup,
     trackSessionStart,
+    // Authentication tracking
+    trackAuthPageVisit,
+    trackAuthMethodAttempt,
+    trackAuthSuccess,
+    trackAuthError,
+    trackValidationError,
   }
 }

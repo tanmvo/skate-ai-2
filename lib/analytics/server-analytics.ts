@@ -9,7 +9,7 @@ const serverPostHog = new PostHog(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
 })
 
 // Graceful shutdown
-if (typeof process !== 'undefined') {
+if (typeof process !== 'undefined' && process.on) {
   process.on('exit', () => {
     serverPostHog.shutdown()
   })

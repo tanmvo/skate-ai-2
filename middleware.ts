@@ -7,14 +7,8 @@ export default auth((req) => {
   // Create response
   let response: NextResponse
 
-  // TEMPORARY: Allow all access during Phase 1 development
-  // TODO: Remove this bypass when Phase 2 (UI) is implemented
-  if (process.env.NODE_ENV === 'development') {
-    console.log(`🚧 DEV MODE: Allowing access to ${pathname} (Auth.js middleware bypassed)`)
-    response = NextResponse.next()
-  }
   // Allow auth routes and static files
-  else if (pathname.startsWith('/auth') ||
+  if (pathname.startsWith('/auth') ||
       pathname.startsWith('/_next') ||
       pathname.startsWith('/api/auth') ||
       pathname === '/favicon.ico') {
