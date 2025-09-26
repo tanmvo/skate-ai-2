@@ -168,10 +168,11 @@ export async function POST(req: NextRequest) {
     let studyContext = '';
     
     try {
+      // Use cached study context for optimal performance
       studyContext = await getCachedData(
         studyContextKey(studyId),
         () => buildStudyContext(studyId),
-        300000 // 5 minutes TTL
+        1800000 // 30 minutes TTL
       );
     } catch (error) {
       console.warn('Failed to load study context:', error);

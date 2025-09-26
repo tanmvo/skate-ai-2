@@ -9,7 +9,7 @@ import { getStudyDocumentReferences } from './data';
 export async function buildStudyContext(studyId: string): Promise<string> {
   try {
     const context = await getMetadataContext(studyId);
-    
+
     if (!context) {
       return 'No study context available.';
     }

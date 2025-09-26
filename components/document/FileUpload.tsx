@@ -2,9 +2,10 @@
 
 import { useCallback } from "react";
 import { useDropzone } from "react-dropzone";
-import { Upload, File, Loader2, Plus } from "lucide-react";
+import { Upload, File, Loader2, Plus, X, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useFileUpload } from "@/lib/hooks/useFileUpload";
+import { useBatchFileUpload } from "@/lib/hooks/useBatchFileUpload";
 import { useAnalytics } from "@/lib/analytics/hooks/use-analytics";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -12,8 +13,10 @@ import { motion, AnimatePresence } from "framer-motion";
 interface FileUploadProps {
   studyId: string;
   onFileUploaded?: (file: { id: string; fileName: string; status: string }) => void;
+  onBatchUploaded?: (files: { id: string; fileName: string; status: string }[]) => void;
   className?: string;
   disabled?: boolean;
+  useBatchMode?: boolean; // Enable batch mode for multiple files
 }
 
 const ACCEPTED_FILE_TYPES = {
@@ -22,32 +25,83 @@ const ACCEPTED_FILE_TYPES = {
   "text/plain": [".txt"],
 };
 
-export function FileUpload({ studyId, onFileUploaded, className, disabled }: FileUploadProps) {
-  const { uploadFile, uploads, isUploading } = useFileUpload();
+export function FileUpload({
+  studyId,
+  onFileUploaded,
+  onBatchUploaded,
+  className,
+  disabled,
+  useBatchMode = true
+}: FileUploadProps) {
+  const { uploadFile, uploads, isUploading: isSingleUploading } = useFileUpload();
+  const { batchState, uploadBatch, cancelBatch, retryBatch, clearBatch, isUploading: isBatchUploading } = useBatchFileUpload();
   const { trackDocumentUpload } = useAnalytics();
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
 
-    for (const file of acceptedFiles) {
+    // Use batch mode for multiple files or if explicitly enabled
+    if (useBatchMode && acceptedFiles.length > 1) {
       try {
-        // Track document upload attempt
-        trackDocumentUpload(file.name, file.type, file.size);
-        
-        const uploadedFile = await uploadFile(file, studyId);
-        
-        // Call the callback if provided
-        onFileUploaded?.(uploadedFile);
-        
+        // Track batch upload attempt
+        acceptedFiles.forEach(file => {
+          trackDocumentUpload(file.name, file.type, file.size);
+        });
+
+        const uploadedFiles = await uploadBatch(acceptedFiles, studyId);
+
+        // Call the batch callback if provided
+        if (onBatchUploaded) {
+          onBatchUploaded(uploadedFiles);
+        } else {
+          // Fall back to individual callbacks
+          uploadedFiles.forEach(file => {
+            onFileUploaded?.(file);
+          });
+        }
+
         // Show success toast
-        toast.success(`${file.name} uploaded successfully`);
+        const successCount = uploadedFiles.length;
+        const totalCount = acceptedFiles.length;
+
+        if (successCount === totalCount) {
+          toast.success(`${successCount} file${successCount !== 1 ? 's' : ''} uploaded successfully`);
+        } else {
+          toast.success(`${successCount}/${totalCount} files uploaded successfully`);
+          if (successCount < totalCount) {
+            toast.error(`${totalCount - successCount} file${(totalCount - successCount) !== 1 ? 's' : ''} failed to upload`);
+          }
+        }
       } catch (error) {
-        console.error("Upload failed:", error);
-        const errorMessage = error instanceof Error ? error.message : "Upload failed";
-        toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
+        console.error("Batch upload failed:", error);
+        const errorMessage = error instanceof Error ? error.message : "Batch upload failed";
+        toast.error(`Failed to upload files: ${errorMessage}`);
+      }
+    } else {
+      // Single file mode - process files individually
+      for (const file of acceptedFiles) {
+        try {
+          // Track document upload attempt
+          trackDocumentUpload(file.name, file.type, file.size);
+
+          const uploadedFile = await uploadFile(file, studyId);
+
+          // Call the callback if provided
+          onFileUploaded?.(uploadedFile);
+
+          // Show success toast
+          toast.success(`${file.name} uploaded successfully`);
+        } catch (error) {
+          console.error("Upload failed:", error);
+          const errorMessage = error instanceof Error ? error.message : "Upload failed";
+          toast.error(`Failed to upload ${file.name}: ${errorMessage}`);
+        }
       }
     }
-  }, [uploadFile, studyId, onFileUploaded, trackDocumentUpload]);
+  }, [uploadFile, uploadBatch, studyId, onFileUploaded, onBatchUploaded, trackDocumentUpload, useBatchMode]);
+
+  // Determine if we're in an uploading state
+  const isUploading = isSingleUploading || isBatchUploading;
 
   const { getRootProps, getInputProps, isDragActive, isDragReject } = useDropzone({
     onDrop,
@@ -56,10 +110,16 @@ export function FileUpload({ studyId, onFileUploaded, className, disabled }: Fil
     multiple: true,
   });
 
-  // Check if any files are currently uploading
-  const uploadingFiles = Array.from(uploads.values()).filter(
+  // Get uploading files from both single and batch modes
+  const singleUploadingFiles = Array.from(uploads.values()).filter(
     upload => upload.status === "uploading"
   );
+
+  const batchUploadingFiles = Array.from(batchState.files.values()).filter(
+    file => file.status === "processing" || file.status === "validating" || file.status === "queued"
+  );
+
+  const uploadingFiles = isBatchUploading ? batchUploadingFiles : singleUploadingFiles;
 
   return (
     <div className={className}>
@@ -101,42 +161,90 @@ export function FileUpload({ studyId, onFileUploaded, className, disabled }: Fil
                   </div>
                   <div className="absolute inset-0 rounded-full bg-primary/5 animate-pulse" />
                 </motion.div>
-                <motion.p 
-                  className="text-sm text-foreground font-medium mb-4"
+                <motion.div
+                  className="flex items-center justify-center gap-3 mb-4"
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.1 }}
                 >
-                  Processing {uploadingFiles.length} file{uploadingFiles.length !== 1 ? "s" : ""}...
-                </motion.p>
+                  <motion.p className="text-sm text-foreground font-medium">
+                    {isBatchUploading ? (
+                      <>
+                        {batchState.status === 'validating' && 'Validating files...'}
+                        {batchState.status === 'processing' && `Processing ${uploadingFiles.length} file${uploadingFiles.length !== 1 ? 's' : ''}...`}
+                        {batchState.status === 'uploading' && `Uploading ${uploadingFiles.length} file${uploadingFiles.length !== 1 ? 's' : ''}...`}
+                      </>
+                    ) : (
+                      `Processing ${uploadingFiles.length} file${uploadingFiles.length !== 1 ? 's' : ''}...`
+                    )}
+                  </motion.p>
+                  {isBatchUploading && batchState.status !== 'completed' && (
+                    <motion.button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        cancelBatch();
+                      }}
+                      className="text-xs text-muted-foreground hover:text-destructive transition-colors duration-200 p-1 rounded"
+                      whileHover={{ scale: 1.1 }}
+                      whileTap={{ scale: 0.9 }}
+                    >
+                      <X className="h-3 w-3" />
+                    </motion.button>
+                  )}
+                </motion.div>
                 <motion.div 
                   className="space-y-2 w-full max-w-[200px]"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.2 }}
                 >
-                  {uploadingFiles.map((upload, index) => (
-                    <motion.div
-                      key={upload.fileName}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.3 + index * 0.1 }}
-                      className="flex items-center justify-between text-xs bg-muted/60 rounded-lg px-3 py-2 backdrop-blur-sm"
-                    >
-                      <span className="truncate max-w-[120px] font-medium">{upload.fileName}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-1.5 bg-muted rounded-full overflow-hidden">
-                          <motion.div 
-                            className="h-full bg-primary rounded-full"
-                            initial={{ width: 0 }}
-                            animate={{ width: `${upload.progress}%` }}
-                            transition={{ duration: 0.3 }}
-                          />
+                  {uploadingFiles.map((upload, index) => {
+                    const fileName = upload.fileName;
+                    const progress = upload.progress;
+                    const status = upload.status;
+
+                    return (
+                      <motion.div
+                        key={fileName}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + index * 0.1 }}
+                        className="flex items-center justify-between text-xs bg-muted/60 rounded-lg px-3 py-2 backdrop-blur-sm"
+                      >
+                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                          <span className="truncate max-w-[120px] font-medium">{fileName}</span>
+                          {isBatchUploading && (
+                            <span className="text-xs text-muted-foreground capitalize">
+                              {status === 'queued' && '•'}
+                              {status === 'validating' && '✓'}
+                              {status === 'processing' && '⚡'}
+                              {status === 'completed' && '✓'}
+                              {status === 'failed' && '✗'}
+                            </span>
+                          )}
                         </div>
-                        <span className="text-primary font-bold text-xs min-w-[24px]">{upload.progress}%</span>
-                      </div>
-                    </motion.div>
-                  ))}
+                        <div className="flex items-center gap-2">
+                          <div className="w-8 h-1.5 bg-muted rounded-full overflow-hidden">
+                            <motion.div
+                              className={cn(
+                                "h-full rounded-full",
+                                status === 'failed' ? "bg-destructive" : "bg-primary"
+                              )}
+                              initial={{ width: 0 }}
+                              animate={{ width: `${progress}%` }}
+                              transition={{ duration: 0.3 }}
+                            />
+                          </div>
+                          <span className={cn(
+                            "font-bold text-xs min-w-[24px]",
+                            status === 'failed' ? "text-destructive" : "text-primary"
+                          )}>
+                            {progress}%
+                          </span>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
                 </motion.div>
               </>
             ) : isDragActive ? (
@@ -218,6 +326,103 @@ export function FileUpload({ studyId, onFileUploaded, className, disabled }: Fil
           <div className="absolute inset-0 bg-gradient-to-t from-transparent via-transparent to-background/5 pointer-events-none" />
         </motion.div>
       </div>
+
+      {/* Batch upload error and retry UI */}
+      {batchState.status === 'failed' && batchState.error && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 p-4 bg-destructive/5 border border-destructive/20 rounded-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-destructive flex items-center justify-center">
+                <X className="h-2.5 w-2.5 text-destructive-foreground" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-destructive">Upload failed</p>
+                <p className="text-xs text-muted-foreground">{batchState.error}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <motion.button
+                onClick={retryBatch}
+                className="text-xs px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors duration-200 flex items-center gap-1"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <RefreshCw className="h-3 w-3" />
+                Retry
+              </motion.button>
+              <motion.button
+                onClick={clearBatch}
+                className="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-muted/50 transition-colors duration-200"
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                Clear
+              </motion.button>
+            </div>
+          </div>
+
+          {/* Show individual file errors */}
+          {batchState.summary.failed > 0 && (
+            <div className="mt-3 space-y-1">
+              <p className="text-xs text-muted-foreground font-medium">Failed files:</p>
+              {Array.from(batchState.files.values())
+                .filter(file => file.status === 'failed')
+                .map(file => (
+                  <div key={file.fileName} className="text-xs text-destructive flex items-center gap-2">
+                    <X className="h-2.5 w-2.5" />
+                    <span className="truncate">{file.fileName}</span>
+                    {file.error && <span className="text-muted-foreground">- {file.error}</span>}
+                  </div>
+                ))
+              }
+            </div>
+          )}
+        </motion.div>
+      )}
+
+      {/* Batch upload summary when completed */}
+      {batchState.status === 'completed' && batchState.summary.total > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-primary flex items-center justify-center">
+                <motion.div
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: "spring", stiffness: 300, delay: 0.1 }}
+                  className="h-2.5 w-2.5 bg-primary-foreground rounded-full"
+                />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-primary">
+                  Upload completed - {batchState.summary.completed}/{batchState.summary.total} files successful
+                </p>
+                {batchState.summary.failed > 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    {batchState.summary.failed} file{batchState.summary.failed !== 1 ? 's' : ''} failed
+                  </p>
+                )}
+              </div>
+            </div>
+            <motion.button
+              onClick={clearBatch}
+              className="text-xs px-3 py-1.5 border border-border rounded-md hover:bg-muted/50 transition-colors duration-200"
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+            >
+              Clear
+            </motion.button>
+          </div>
+        </motion.div>
+      )}
     </div>
   );
 }

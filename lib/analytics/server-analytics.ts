@@ -153,10 +153,46 @@ export async function trackStudyEvent(
 }
 
 /**
+ * Track batch upload events
+ */
+export async function trackBatchUploadEvent(
+  event: 'batch_upload_started' | 'batch_processing_started' | 'batch_upload_completed' | 'batch_upload_failed',
+  properties: {
+    batchId: string
+    studyId: string
+    fileCount: number
+    totalSizeMb?: number
+    concurrentFiles?: number
+    successCount?: number
+    failureCount?: number
+    processingTimeMs?: number
+    errorType?: string
+    errorMessage?: string
+  },
+  userId?: string
+) {
+  return trackServerEvent(event, {
+    batch_id: properties.batchId,
+    study_id: properties.studyId,
+    file_count: properties.fileCount,
+    total_size_mb: properties.totalSizeMb,
+    concurrent_files: properties.concurrentFiles,
+    success_count: properties.successCount,
+    failure_count: properties.failureCount,
+    processing_time_ms: properties.processingTimeMs,
+    processing_time_seconds: properties.processingTimeMs ? Math.round(properties.processingTimeMs / 1000 * 10) / 10 : undefined,
+    error_type: properties.errorType,
+    error_message: properties.errorMessage,
+    success_rate: properties.successCount && properties.fileCount
+      ? Math.round((properties.successCount / properties.fileCount) * 100) : undefined,
+  }, userId)
+}
+
+/**
  * Track error events
  */
 export async function trackErrorEvent(
-  event: 'api_error_occurred' | 'upload_error_occurred' | 'chat_error_occurred',
+  event: 'api_error_occurred' | 'upload_error_occurred' | 'chat_error_occurred' | 'batch_upload_error_occurred',
   properties: {
     errorType: string
     errorMessage: string
@@ -193,6 +229,30 @@ export async function trackPerformanceEvent(
     duration_ms: properties.durationMs,
     duration_seconds: Math.round(properties.durationMs / 1000 * 10) / 10,
     success: properties.success,
+  }, userId)
+}
+
+/**
+ * Track cache invalidation events
+ */
+export async function trackCacheEvent(
+  event: 'cache_invalidation_success' | 'cache_invalidation_failed' | 'cache_invalidation_attempt',
+  properties: {
+    studyId: string
+    attempt?: number
+    attempts?: number
+    error?: string
+    removed?: number
+  },
+  userId?: string
+) {
+  return trackServerEvent(event, {
+    study_id: properties.studyId,
+    attempt: properties.attempt,
+    attempts: properties.attempts,
+    error_message: properties.error,
+    removed_entries: properties.removed,
+    has_error: !!properties.error,
   }, userId)
 }
 

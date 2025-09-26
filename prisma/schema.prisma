@@ -23,22 +23,24 @@ model User {
   sessions Session[]
 
   // Existing relationships
-  studies  Study[]
-  chats    Chat[]
+  studies      Study[]
+  chats        Chat[]
+  uploadBatches UploadBatch[]
 
   @@map(name: "users")
 }
 
 model Study {
-  id          String      @id @default(cuid())
-  name        String
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  userId      String?
-  user        User?       @relation(fields: [userId], references: [id])
-  documents   Document[]
-  chats       Chat[]
-  messages    ChatMessage[]
+  id            String      @id @default(cuid())
+  name          String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  userId        String?
+  user          User?       @relation(fields: [userId], references: [id])
+  documents     Document[]
+  chats         Chat[]
+  messages      ChatMessage[]
+  uploadBatches UploadBatch[]
 }
 
 model Document {
@@ -56,6 +58,11 @@ model Document {
   storagePath   String?      // Full path to file on disk or blob storage
   storageUrl    String?      // Serving URL for the file
   storageType   String       @default("filesystem") // "filesystem" | "vercel-blob"
+  // Batch upload tracking
+  batchId       String?      // Reference to upload batch
+  batch         UploadBatch? @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
+  @@index([batchId])
 }
 
 model DocumentChunk {
@@ -91,6 +98,34 @@ model ChatMessage {
   chat          Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)
   studyId       String      // Denormalized for easier queries
   study         Study       @relation(fields: [studyId], references: [id], onDelete: Cascade)
+}
+
+model UploadBatch {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  studyId         String
+  study           Study        @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  status          BatchStatus  @default(VALIDATING)
+  totalFiles      Int
+  completedFiles  Int          @default(0)
+  failedFiles     Int          @default(0)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  metadata        Json?        // Store additional batch metadata
+  documents       Document[]
+
+  @@index([userId])
+  @@index([studyId])
+  @@index([status])
+}
+
+enum BatchStatus {
+  VALIDATING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum ProcessingStatus {

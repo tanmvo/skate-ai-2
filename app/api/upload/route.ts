@@ -6,6 +6,7 @@ import { extractTextFromBuffer } from "@/lib/document-processing";
 import { chunkText } from "@/lib/document-chunking";
 import { generateBatchEmbeddings, serializeEmbedding } from "@/lib/voyage-embeddings";
 import { trackDocumentUploadEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
+import { invalidateStudyMetadataOnDocumentChange } from "@/lib/metadata-collector";
 
 /**
  * Determine the actual storage type used based on headers and environment
@@ -296,6 +297,24 @@ async function processDocumentAsync(
     }, userId);
 
     console.log(`Successfully processed document ${documentId}: ${fileName}`);
+
+    // Invalidate study metadata cache so new document appears in context immediately
+    try {
+      await invalidateStudyMetadataOnDocumentChange(studyId);
+    } catch (cacheError) {
+      console.error(`Cache invalidation failed for study ${studyId}:`, cacheError);
+
+      // Mark document as failed since cache sync failed
+      await prisma.document.update({
+        where: { id: documentId },
+        data: {
+          status: "FAILED",
+          extractedText: `Processing completed but cache synchronization failed: ${cacheError instanceof Error ? cacheError.message : 'Unknown cache error'}`
+        },
+      });
+
+      throw new Error(`Document processing completed but cache synchronization failed: ${cacheError instanceof Error ? cacheError.message : 'Unknown cache error'}`);
+    }
 
   } catch (error) {
     console.error(`Document processing failed for ${documentId}:`, error);

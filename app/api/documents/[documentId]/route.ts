@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireAuth, validateDocumentOwnership } from "@/lib/auth";
 import { deleteDocumentFiles } from "@/lib/file-storage/cleanup";
+import { invalidateStudyMetadataOnDocumentChange } from "@/lib/metadata-collector";
 
 export async function GET(
   request: NextRequest,
@@ -146,6 +147,17 @@ export async function DELETE(
         console.error(`File cleanup failed for document ${documentId}:`, cleanup.error);
         // Continue - database cleanup succeeded
       }
+    }
+
+    // Invalidate study metadata cache so deleted document disappears from context immediately
+    try {
+      await invalidateStudyMetadataOnDocumentChange(document.studyId);
+    } catch (cacheError) {
+      console.error(`Cache invalidation failed for study ${document.studyId} after deleting document ${documentId}:`, cacheError);
+      return NextResponse.json(
+        { error: `Document deleted but cache synchronization failed: ${cacheError instanceof Error ? cacheError.message : 'Unknown cache error'}` },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({ success: true });

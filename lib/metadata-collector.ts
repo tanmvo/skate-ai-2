@@ -1,25 +1,22 @@
 import { prisma } from './prisma';
 import { getCurrentUserId } from './auth';
 import { StudyMetadata, DocumentMetadata, MetadataContext } from './types/metadata';
-import { 
-  getCachedData, 
-  studyMetadataKey, 
-  invalidateStudyCache 
+import {
+  getCachedData,
+  studyMetadataKey,
+  invalidateStudyCache
 } from './metadata-cache';
+import { trackCacheEvent } from './analytics/server-analytics';
 
 /**
  * Collects comprehensive metadata for studies and documents
  */
 
-export async function getStudyMetadata(studyId: string, useCache: boolean = true): Promise<StudyMetadata | null> {
-  if (!useCache) {
-    return await fetchStudyMetadata(studyId);
-  }
-  
+export async function getStudyMetadata(studyId: string): Promise<StudyMetadata | null> {
   return await getCachedData(
     studyMetadataKey(studyId),
     () => fetchStudyMetadata(studyId),
-    300000 // 5 minutes TTL
+    1800000 // 30 minutes TTL
   );
 }
 
@@ -158,19 +155,35 @@ export async function getDocumentMetadata(documentIds: string[]): Promise<Docume
 
 export async function getMetadataContext(studyId: string): Promise<MetadataContext | null> {
   try {
+    console.log('📋 Getting metadata context for study:', studyId);
     const studyMetadata = await getStudyMetadata(studyId);
-    
+
     if (!studyMetadata) {
+      console.log('❌ No study metadata found for:', studyId);
       return null;
     }
 
-    const availableDocuments = studyMetadata.documents.filter(doc => 
+    console.log('📄 All documents in study metadata:', studyMetadata.documents.map(d => ({
+      id: d.id,
+      fileName: d.fileName,
+      status: d.status,
+      hasEmbeddings: d.hasEmbeddings,
+      chunkCount: d.chunkCount
+    })));
+
+    const availableDocuments = studyMetadata.documents.filter(doc =>
       doc.status === 'READY' && doc.hasEmbeddings
     );
 
-    const readyDocuments = studyMetadata.documents.filter(doc => 
+    const readyDocuments = studyMetadata.documents.filter(doc =>
       doc.status === 'READY'
     ).length;
+
+    console.log('✅ Available documents after filtering:', availableDocuments.map(d => ({
+      id: d.id,
+      fileName: d.fileName,
+      chunkCount: d.chunkCount
+    })));
 
     return {
       study: studyMetadata,
@@ -236,6 +249,13 @@ export async function getDocumentsByStudy(studyId: string): Promise<DocumentMeta
 
 
 /**
+ * Sleep utility for retry delays
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
  * Cache invalidation helpers for document changes
  */
 export function invalidateStudyMetadata(studyId: string): void {
@@ -247,7 +267,40 @@ export function invalidateStudyMetadata(studyId: string): void {
   }
 }
 
-export function invalidateStudyMetadataOnDocumentChange(studyId: string): void {
-  // Call this when documents are added, updated, or deleted
-  invalidateStudyMetadata(studyId);
+export async function invalidateStudyMetadataOnDocumentChange(studyId: string): Promise<void> {
+  const maxRetries = 3;
+  const baseDelay = 100; // milliseconds
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const removed = invalidateStudyCache(studyId);
+      console.log(`Invalidated ${removed} cache entries for study ${studyId}`);
+
+      // Track successful invalidation (fire-and-forget)
+      try {
+        await trackCacheEvent('cache_invalidation_success', { studyId, attempt, removed });
+      } catch (analyticsError) {
+        console.warn('Analytics tracking failed for cache invalidation success:', analyticsError);
+      }
+      return;
+
+    } catch (error) {
+      if (attempt === maxRetries) {
+        // Track failure and throw (fire-and-forget analytics)
+        try {
+          await trackCacheEvent('cache_invalidation_failed', {
+            studyId,
+            attempts: maxRetries,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+        } catch (analyticsError) {
+          console.warn('Analytics tracking failed for cache invalidation failure:', analyticsError);
+        }
+        throw new Error(`Cache invalidation failed after ${maxRetries} attempts`);
+      }
+
+      // Exponential backoff
+      await sleep(baseDelay * Math.pow(2, attempt - 1));
+    }
+  }
 }
