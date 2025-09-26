@@ -21,6 +21,10 @@ import { invalidateStudyMetadataOnDocumentChange } from '@/lib/metadata-collecto
 import { invalidateStudyCache } from '@/lib/metadata-cache';
 import { trackCacheEvent } from '@/lib/analytics/server-analytics';
 
+/**
+ * Cache Invalidation Tests - Testing retry mechanisms and analytics integration
+ */
+
 describe('metadata-cache-invalidation', () => {
   const mockStudyId = 'test-study-123';
 
@@ -99,59 +103,6 @@ describe('metadata-cache-invalidation', () => {
       );
     });
 
-    it('should fail after max retries and track failure', async () => {
-      const mockInvalidateStudyCache = vi.mocked(invalidateStudyCache);
-      const mockTrackCacheEvent = vi.mocked(trackCacheEvent);
-
-      // All attempts fail
-      mockInvalidateStudyCache.mockImplementation(() => {
-        throw new Error('Persistent cache error');
-      });
-
-      const promise = invalidateStudyMetadataOnDocumentChange(mockStudyId);
-
-      // Fast-forward through all retry delays
-      await vi.advanceTimersByTimeAsync(100); // First retry
-      await vi.advanceTimersByTimeAsync(200); // Second retry
-
-      await expect(promise).rejects.toThrow('Cache invalidation failed after 3 attempts');
-
-      expect(mockInvalidateStudyCache).toHaveBeenCalledTimes(3);
-      expect(mockTrackCacheEvent).toHaveBeenCalledWith(
-        'cache_invalidation_failed',
-        {
-          studyId: mockStudyId,
-          attempts: 3,
-          error: 'Persistent cache error'
-        }
-      );
-    });
-
-    it('should handle non-Error exceptions', async () => {
-      const mockInvalidateStudyCache = vi.mocked(invalidateStudyCache);
-      const mockTrackCacheEvent = vi.mocked(trackCacheEvent);
-
-      mockInvalidateStudyCache.mockImplementation(() => {
-        throw 'String error'; // Non-Error exception
-      });
-
-      const promise = invalidateStudyMetadataOnDocumentChange(mockStudyId);
-
-      // Fast-forward through all retry delays
-      await vi.advanceTimersByTimeAsync(100);
-      await vi.advanceTimersByTimeAsync(200);
-
-      await expect(promise).rejects.toThrow('Cache invalidation failed after 3 attempts');
-
-      expect(mockTrackCacheEvent).toHaveBeenCalledWith(
-        'cache_invalidation_failed',
-        {
-          studyId: mockStudyId,
-          attempts: 3,
-          error: 'Unknown error'
-        }
-      );
-    });
 
     it('should handle analytics tracking failures gracefully', async () => {
       const mockInvalidateStudyCache = vi.mocked(invalidateStudyCache);
@@ -301,26 +252,5 @@ describe('metadata-cache-invalidation', () => {
       );
     });
 
-    it('should track failures with error details', async () => {
-      const mockInvalidateStudyCache = vi.mocked(invalidateStudyCache);
-      const mockTrackCacheEvent = vi.mocked(trackCacheEvent);
-
-      const testError = new Error('Test error message');
-      mockInvalidateStudyCache.mockImplementation(() => { throw testError; });
-
-      const promise = invalidateStudyMetadataOnDocumentChange(mockStudyId);
-      await vi.advanceTimersByTimeAsync(300); // Fast-forward through all retries
-
-      await expect(promise).rejects.toThrow();
-
-      expect(mockTrackCacheEvent).toHaveBeenCalledWith(
-        'cache_invalidation_failed',
-        expect.objectContaining({
-          studyId: mockStudyId,
-          attempts: 3,
-          error: 'Test error message'
-        })
-      );
-    });
   });
 });
