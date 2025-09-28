@@ -92,13 +92,30 @@ export class PromptBuilder {
 
 /**
  * Load a prompt section from a template file
+ * @param sectionId - The section ID (e.g., 'task-context', 'tone-context')
+ * @param promptType - The prompt type folder (e.g., 'main-system-prompt', 'study-summary')
  */
-export async function loadPromptSection(sectionId: string): Promise<PromptSection> {
+export async function loadPromptSection(sectionId: string, promptType: string = 'main-system-prompt'): Promise<PromptSection> {
   try {
-    const importedModule = await import(`./components/${sectionId}`);
+    // Map section IDs to numbered files
+    const sectionMap: Record<string, string> = {
+      'task-context': '01-task-context',
+      'tone-context': '02-tone-context',
+      'background-data': '03-background-data',
+      'rules-boundaries': '04-rules-boundaries',
+      'examples': '05-examples',
+      'conversation-history': '06-conversation-history',
+      'immediate-task': '07-immediate-task',
+      'thinking-process': '08-thinking-process',
+      'output-formatting': '09-output-formatting',
+      'prefilled-response': '10-prefilled-response'
+    };
+
+    const fileName = sectionMap[sectionId] || sectionId;
+    const importedModule = await import(`./components/${promptType}/${fileName}`);
     return importedModule.default as PromptSection;
   } catch (error) {
-    throw new Error(`Failed to load prompt section: ${sectionId}. ${error}`);
+    throw new Error(`Failed to load prompt section: ${sectionId} from ${promptType}. ${error}`);
   }
 }
 
