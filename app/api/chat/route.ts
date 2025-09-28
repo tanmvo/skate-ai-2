@@ -13,7 +13,7 @@ import {
   createSearchTools
 } from '@/lib/llm-tools/search-tools';
 import { trackChatEvent, trackSearchEvent, trackErrorEvent } from '@/lib/analytics/server-analytics';
-import { buildSystemPrompt, buildOldSystemPrompt } from '@/lib/prompts/templates/main-system-prompt';
+import { buildSystemPrompt } from '@/lib/prompts/templates/main-system-prompt';
 
 // Types for tool call persistence
 interface AISDKv5MessagePart {
@@ -180,13 +180,6 @@ export async function POST(req: NextRequest) {
       studyContext = `Study context unavailable. Using fallback search.`;
     }
 
-    // Build enhanced system prompt for natural synthesis using search tools
-    // Toggle between old and new system prompts for testing
-    // Set USE_OLD_PROMPT=true in environment to use old prompt
-    // const useOldPrompt = process.env.USE_OLD_PROMPT === 'true';
-    // const systemPrompt = useOldPrompt
-    //   ? await buildOldSystemPrompt({ studyContext })
-    //   : await buildSystemPrompt({ studyContext });
     const systemPrompt = await buildSystemPrompt({ studyContext });
 
     // Track AI response started
@@ -204,7 +197,7 @@ export async function POST(req: NextRequest) {
           
           // Create the AI response stream using working v5 pattern
           const result = streamText({
-            model: anthropic('claude-3-5-sonnet-20241022'),
+            model: anthropic('claude-sonnet-4-20250514'),
             system: systemPrompt,
             messages: convertToModelMessages([message]), // Convert UI message to model messages
             
