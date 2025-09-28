@@ -23,11 +23,11 @@ const summaryOutputFormatting: PromptSection = {
 - **Optimize**: Every word must add value
 
 ### Example Format:
-```
+
 [Main summary paragraph in past tense, maximum 500 characters, covering topic, purpose, method, and key findings with specific details woven naturally]
 
 Would you like a descriptive summary of any of the individual sources uploaded?
-````,
+`,
   variables: []
 };
 

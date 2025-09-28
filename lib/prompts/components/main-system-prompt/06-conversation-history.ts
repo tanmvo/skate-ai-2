@@ -1,4 +1,4 @@
-import { PromptSection } from '../prompt-builder';
+import { PromptSection } from '../../prompt-builder';
 
 const conversationHistory: PromptSection = {
   id: 'conversation-history',

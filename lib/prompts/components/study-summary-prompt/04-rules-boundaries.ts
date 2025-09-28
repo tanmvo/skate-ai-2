@@ -1,4 +1,4 @@
-import { PromptSection } from '../prompt-builder';
+import { PromptSection } from '../../prompt-builder';
 
 const summaryRulesBoundaries: PromptSection = {
   id: 'summary-rules-boundaries',

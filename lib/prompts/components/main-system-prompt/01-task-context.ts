@@ -1,4 +1,4 @@
-import { PromptSection } from '../prompt-builder';
+import { PromptSection } from '../../prompt-builder';
 
 const taskContext: PromptSection = {
   id: 'task-context',

@@ -1,4 +1,4 @@
-import { PromptSection } from '../prompt-builder';
+import { PromptSection } from '../../prompt-builder';
 
 const prefilledResponse: PromptSection = {
   id: 'prefilled-response',

@@ -26,7 +26,8 @@
       "WebSearch",
       "WebFetch(domain:posthog.com)",
       "WebFetch(domain:notebooklm.google)",
-      "WebFetch(domain:dovetail.com)"
+      "WebFetch(domain:dovetail.com)",
+      "Bash(find:*)"
     ],
     "deny": []
   }
