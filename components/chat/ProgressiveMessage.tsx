@@ -2,11 +2,13 @@ import { UIMessage } from "@ai-sdk/react";
 import { Bot, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { isFinalTextPart } from "@/lib/utils/message-parts";
 import { Citation } from "@/lib/types/citations";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { MessageActions } from "@/components/chat/MessageActions";
 import { useToolProgress } from "@/lib/hooks/useToolProgress";
 import { AnimatePresence, motion } from "framer-motion";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 // Simplified for search-only approach - removed synthesis dependencies
 
 interface ProgressiveMessageProps {
@@ -16,6 +18,7 @@ interface ProgressiveMessageProps {
   onRetryPersistence?: () => void;
   onCopy?: (text: string) => void;
   formatTimestamp: (date: Date) => string;
+  isLoading?: boolean;
 }
 
 export function ProgressiveMessage({
@@ -24,6 +27,7 @@ export function ProgressiveMessage({
   onRetryPersistence,
   onCopy,
   formatTimestamp,
+  isLoading = false,
 }: ProgressiveMessageProps) {
   // Extract tool progress data using v5 compatible hook
   const toolProgress = useToolProgress(message);
@@ -48,6 +52,8 @@ export function ProgressiveMessage({
       <div className={cn("space-y-3")}>
         {messageParts.map((part, index) => {
           if (part.type === 'text' && part.text && part.text.trim()) {
+            const showActions = isFinalTextPart(messageParts, index);
+
             return (
               <motion.div
                 key={`${message.id}-part-${index}`}
@@ -58,35 +64,41 @@ export function ProgressiveMessage({
               >
                 <div className="flex gap-4 w-full">
                   <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border bg-background">
-                    <div className="translate-y-px">
-                      <Bot size={14} />
-                    </div>
+                    {isLoading ? (
+                      <LoadingSpinner size="sm" />
+                    ) : (
+                      <div className="translate-y-px">
+                        <Bot size={14} />
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col gap-4 w-full">
                     <div className="flex flex-col gap-4">
                       <MarkdownRenderer content={part.text} />
                     </div>
-                    {/* Message Actions */}
-                    <div className="flex items-center gap-2">
-                      {persistenceError && (
-                        <div className="flex items-center gap-2">
-                          <AlertCircle className="h-3 w-3 text-destructive" />
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-auto p-1 text-destructive hover:text-destructive"
-                            onClick={onRetryPersistence}
-                            title="Message not saved - click to retry"
-                          >
-                            <RefreshCw className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                      <MessageActions 
-                        message={{ ...message, parts: [{ type: 'text', text: part.text }] } as UIMessage}
-                        onCopy={onCopy!}
-                      />
-                    </div>
+                    {/* Message Actions - only show on final text part */}
+                    {!isLoading && showActions && (
+                      <div className="flex items-center gap-2">
+                        {persistenceError && (
+                          <div className="flex items-center gap-2">
+                            <AlertCircle className="h-3 w-3 text-destructive" />
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-auto p-1 text-destructive hover:text-destructive"
+                              onClick={onRetryPersistence}
+                              title="Message not saved - click to retry"
+                            >
+                              <RefreshCw className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        )}
+                        <MessageActions
+                          message={{ ...message, parts: [{ type: 'text', text: part.text }] } as UIMessage}
+                          onCopy={onCopy!}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>

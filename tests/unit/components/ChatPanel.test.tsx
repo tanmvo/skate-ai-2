@@ -48,6 +48,35 @@ vi.mock('@/lib/hooks/useMessages', () => ({
   })),
 }));
 
+vi.mock('@/lib/hooks/useStudy', () => ({
+  useStudy: vi.fn(),
+}));
+
+vi.mock('@/lib/hooks/useDocuments', () => ({
+  useDocuments: vi.fn(),
+}));
+
+vi.mock('@/lib/hooks/useChatStream', () => ({
+  useChatStream: vi.fn(() => ({
+    messages: [],
+    setMessages: vi.fn(),
+    sendMessage: vi.fn(),
+    status: 'ready',
+    regenerate: vi.fn(),
+    handleSubmit: vi.fn(),
+    input: '',
+    setInput: vi.fn(),
+    isLoading: false,
+    error: null,
+  })),
+}));
+
+vi.mock('@/lib/analytics/hooks/use-analytics', () => ({
+  useAnalytics: () => ({
+    trackMessageCopy: vi.fn(),
+  })
+}));
+
 // Mock clipboard API
 Object.assign(navigator, {
   clipboard: {
@@ -55,12 +84,45 @@ Object.assign(navigator, {
   },
 });
 
+// Import the mocked hook to get the mock function
+import { useChatStream } from '@/lib/hooks/useChatStream';
+const mockUseChatStream = vi.mocked(useChatStream);
+
 describe('ChatPanel', () => {
   const studyId = 'study_test_123';
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     resetMocks();
+
+    // Setup default mocks for useStudy and useDocuments
+    const { useStudy } = await import('@/lib/hooks/useStudy');
+    const { useDocuments } = await import('@/lib/hooks/useDocuments');
+
+    vi.mocked(useStudy).mockReturnValue({
+      study: {
+        id: studyId,
+        name: 'Test Study',
+        summary: 'Test study summary',
+        documents: [],
+        messages: [],
+      } as any,
+      isLoading: false,
+      error: null,
+      updateStudy: vi.fn(),
+      refreshStudy: vi.fn(),
+      mutate: vi.fn(),
+    });
+
+    vi.mocked(useDocuments).mockReturnValue({
+      documents: [
+        { id: 'doc-1', fileName: 'test.pdf', status: 'READY' }
+      ] as any,
+      isLoading: false,
+      error: null,
+      deleteDocument: vi.fn(),
+      mutate: vi.fn(),
+    });
   });
 
   it('renders chat panel header correctly', () => {
@@ -73,11 +135,11 @@ describe('ChatPanel', () => {
     expect(screen.getByText('Ask questions about your documents')).toBeVisible();
   });
 
-  it('shows welcome state when no messages', async () => {
+  it('shows summary when no messages', async () => {
     // Ensure no messages in both AI SDK and SWR
     mockUseChat.messages = [];
     mockUseChat.status = 'ready'; // Set status to ready
-    
+
     const { useMessages } = await import('@/lib/hooks/useMessages');
     vi.mocked(useMessages).mockReturnValue({
       messages: [],
@@ -88,21 +150,31 @@ describe('ChatPanel', () => {
 
     renderWithProviders(<ChatPanel studyId={studyId} />);
 
-    // Test actual welcome content that component renders (may be animated in)
-    expect(screen.getByText('Welcome to your research assistant!')).toBeInTheDocument();
-    expect(screen.getByText('What would you like to explore in your documents?')).toBeInTheDocument();
-    
+    // Should show the study summary (from beforeEach mock)
+    expect(screen.getByText('Test study summary')).toBeInTheDocument();
+
     // Verify input is present and enabled when chat is ready
     const input = screen.getByPlaceholderText('Ask a question about your documents...');
     expect(input).toBeInTheDocument();
-    // Input should not be disabled in welcome state if chat is ready
+    // Input should not be disabled when documents exist
     expect(input.hasAttribute('disabled')).toBe(false);
   });
 
   it('displays messages correctly', async () => {
-    // Mock both useChat messages AND SWR cached messages
-    mockUseChat.messages = mockMessages;
-    
+    // Mock useChatStream with messages
+    mockUseChatStream.mockReturnValue({
+      messages: mockMessages,
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'ready',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      error: null,
+    });
+
     const { useMessages } = await import('@/lib/hooks/useMessages');
     vi.mocked(useMessages).mockReturnValue({
       messages: mockMessages, // Mock the SWR cached messages too
@@ -119,9 +191,20 @@ describe('ChatPanel', () => {
   });
 
   it('renders user and assistant messages with different styles', async () => {
-    // Mock both useChat messages AND SWR cached messages
-    mockUseChat.messages = mockMessages;
-    
+    // Mock useChatStream with messages
+    mockUseChatStream.mockReturnValue({
+      messages: mockMessages,
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'ready',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      error: null,
+    });
+
     const { useMessages } = await import('@/lib/hooks/useMessages');
     vi.mocked(useMessages).mockReturnValue({
       messages: mockMessages,
@@ -131,11 +214,11 @@ describe('ChatPanel', () => {
     });
 
     renderWithProviders(<ChatPanel studyId={studyId} />);
-    
+
     // Check that messages are present in the DOM
     const userMessage = screen.getByText('What are the main themes in this document?');
     const assistantMessage = screen.getByText(/Based on the document analysis/);
-    
+
     expect(userMessage).toBeInTheDocument();
     expect(assistantMessage).toBeInTheDocument();
   });
@@ -223,9 +306,19 @@ describe('ChatPanel', () => {
   });
 
   it('disables input when loading', async () => {
-    // Mock AI SDK as loading
-    mockUseChat.isLoading = true;
-    mockUseChat.status = 'loading';
+    // Mock useChatStream as loading
+    mockUseChatStream.mockReturnValue({
+      messages: [],
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'loading',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: true,
+      error: null,
+    });
 
     // Mock SWR as not loading to isolate the AI SDK loading state
     const { useMessages } = await import('@/lib/hooks/useMessages');
@@ -239,7 +332,7 @@ describe('ChatPanel', () => {
     renderWithProviders(<ChatPanel studyId={studyId} />);
 
     const textarea = screen.getByPlaceholderText('Ask a question about your documents...');
-    
+
     // Verify loading state - input should be disabled when AI SDK is loading
     expect(textarea).toBeVisible();
     expect(textarea).toHaveAttribute('disabled');
@@ -308,9 +401,20 @@ describe('ChatPanel', () => {
   });
 
   it('shows message content when messages exist', async () => {
-    // Mock both useChat messages AND SWR cached messages
-    mockUseChat.messages = mockMessages;
-    
+    // Mock useChatStream with messages
+    mockUseChatStream.mockReturnValue({
+      messages: mockMessages,
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'ready',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      error: null,
+    });
+
     const { useMessages } = await import('@/lib/hooks/useMessages');
     vi.mocked(useMessages).mockReturnValue({
       messages: mockMessages,
@@ -327,9 +431,20 @@ describe('ChatPanel', () => {
   });
 
   it('has interactive elements for messages', async () => {
-    // Mock both useChat messages AND SWR cached messages
-    mockUseChat.messages = mockMessages;
-    
+    // Mock useChatStream with messages
+    mockUseChatStream.mockReturnValue({
+      messages: mockMessages,
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'ready',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      error: null,
+    });
+
     const { useMessages } = await import('@/lib/hooks/useMessages');
     vi.mocked(useMessages).mockReturnValue({
       messages: mockMessages,
@@ -343,7 +458,7 @@ describe('ChatPanel', () => {
     // Look for interactive elements (buttons, etc.)
     const buttons = screen.getAllByRole('button');
     expect(buttons.length).toBeGreaterThan(0);
-    
+
     // Should have at least some buttons for interaction
     expect(buttons.some(button => button.querySelector('svg'))).toBe(true);
   });
@@ -386,10 +501,21 @@ describe('ChatPanel', () => {
         createdAt: new Date('2025-01-15T14:30:00Z'),
       },
     ];
-    
-    // Mock both useChat messages AND SWR cached messages
-    mockUseChat.messages = messagesWithTimestamps;
-    
+
+    // Mock useChatStream with messages
+    mockUseChatStream.mockReturnValue({
+      messages: messagesWithTimestamps,
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'ready',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      error: null,
+    });
+
     const { useMessages } = await import('@/lib/hooks/useMessages');
     vi.mocked(useMessages).mockReturnValue({
       messages: messagesWithTimestamps,
@@ -404,23 +530,44 @@ describe('ChatPanel', () => {
     expect(screen.getByText('Test message')).toBeInTheDocument();
   });
 
-  it('handles component state correctly', () => {
+  it('handles component state correctly', async () => {
+    // Mock no documents to test disabled state
+    const { useDocuments } = await import('@/lib/hooks/useDocuments');
+    vi.mocked(useDocuments).mockReturnValue({
+      documents: [],
+      isLoading: false,
+      error: null,
+      deleteDocument: vi.fn(),
+      mutate: vi.fn(),
+    });
+
     renderWithProviders(<ChatPanel studyId={studyId} />);
 
-    const textarea = screen.getByPlaceholderText('Ask a question about your documents...');
-    
-    // Component should be in proper initial state
+    const textarea = screen.getByPlaceholderText('Upload documents to start chatting...');
+
+    // Component should be in proper initial state with no documents
     expect(textarea).toBeInTheDocument();
     expect(textarea).toHaveAttribute('disabled');
   });
 
   it('updates when new messages arrive', async () => {
-    // Start with no messages in both systems
-    mockUseChat.messages = [];
-    
     const { useMessages } = await import('@/lib/hooks/useMessages');
     const mockMutate = vi.fn();
-    
+
+    // Start with no messages
+    mockUseChatStream.mockReturnValue({
+      messages: [],
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'ready',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      error: null,
+    });
+
     vi.mocked(useMessages).mockReturnValue({
       messages: [],
       error: null,
@@ -430,18 +577,30 @@ describe('ChatPanel', () => {
 
     const { rerender } = renderWithProviders(<ChatPanel studyId={studyId} />);
 
-    // Start with no messages - should show welcome state
-    expect(screen.getByText('Welcome to your research assistant!')).toBeInTheDocument();
+    // Start with no messages - should show summary (from beforeEach mock)
+    expect(screen.getByText('Test study summary')).toBeInTheDocument();
 
     // Add messages to both systems and rerender
-    mockUseChat.messages = mockMessages;
+    mockUseChatStream.mockReturnValue({
+      messages: mockMessages,
+      setMessages: vi.fn(),
+      sendMessage: vi.fn(),
+      status: 'ready',
+      regenerate: vi.fn(),
+      handleSubmit: vi.fn(),
+      input: '',
+      setInput: vi.fn(),
+      isLoading: false,
+      error: null,
+    });
+
     vi.mocked(useMessages).mockReturnValue({
       messages: mockMessages,
       error: null,
       mutate: mockMutate,
       isLoading: false,
     });
-    
+
     rerender(<ChatPanel studyId={studyId} />);
 
     // Should show the new messages

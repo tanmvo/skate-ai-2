@@ -7,6 +7,7 @@ import { chunkText } from "@/lib/document-chunking";
 import { generateBatchEmbeddings, serializeEmbedding } from "@/lib/voyage-embeddings";
 import { trackDocumentUploadEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
 import { invalidateStudyMetadataOnDocumentChange } from "@/lib/metadata-collector";
+import { generateStudySummary } from "@/lib/summary-generation";
 
 /**
  * Determine the actual storage type used based on headers and environment
@@ -314,6 +315,40 @@ async function processDocumentAsync(
       });
 
       throw new Error(`Document processing completed but cache synchronization failed: ${cacheError instanceof Error ? cacheError.message : 'Unknown cache error'}`);
+    }
+
+    // Trigger summary regeneration (non-blocking)
+    try {
+      console.log(`Triggering summary regeneration for study ${studyId} after document upload`);
+      const result = await generateStudySummary(studyId);
+
+      if (result) {
+        await prisma.study.update({
+          where: { id: studyId },
+          data: { summary: result.summary },
+        });
+
+        console.log(`Summary regenerated for study ${studyId} (${result.summary.length} chars, ${result.metadata.generationTimeMs}ms)`);
+
+        // Track analytics
+        const { trackStudyEvent } = await import('@/lib/analytics/server-analytics');
+        await trackStudyEvent('summary_generated', {
+          studyId,
+          documentCount: result.metadata.documentCount,
+          chunksAnalyzed: result.metadata.totalChunks,
+          generationTimeMs: result.metadata.generationTimeMs,
+          summaryLength: result.summary.length,
+        }, userId);
+      }
+    } catch (error) {
+      // Silent failure - don't block document processing
+      console.error(`Summary regeneration failed for study ${studyId}:`, error);
+      await trackErrorEvent('summary_generation_failed', {
+        errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        endpoint: 'processDocumentAsync',
+        statusCode: 500,
+      }, userId);
     }
 
   } catch (error) {

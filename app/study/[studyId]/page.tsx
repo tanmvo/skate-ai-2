@@ -19,7 +19,7 @@ import {
 function StudyPageContent() {
   const router = useRouter();
   const { study, isLoading, error, refreshStudy } = useStudyContext();
-  const { deleteDocument } = useDocuments(study?.id || '');
+  const { deleteDocument, mutate: mutateDocuments } = useDocuments(study?.id || '');
   const [highlightedDocumentId, setHighlightedDocumentId] = useState<string | undefined>();
   const [citationCounts, setCitationCounts] = useState<Record<string, number>>({});
 
@@ -40,8 +40,9 @@ function StudyPageContent() {
 
   const handleFileUpload = (file: { id: string; fileName: string; status: string }) => {
     console.log("File uploaded:", file);
-    // Refresh study data to include the new document
+    // Refresh study data and documents list to include the new document
     refreshStudy();
+    mutateDocuments();
   };
 
   const handleCitationClick = (citation: Citation) => {

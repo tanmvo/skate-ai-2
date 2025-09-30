@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback } from "react";
+import { useSWRConfig } from 'swr';
 
 // Custom error type for validation errors
 export interface ValidationError extends Error {
@@ -54,6 +55,7 @@ export interface UseFileUploadReturn {
 
 export function useFileUpload(): UseFileUploadReturn {
   const [uploads, setUploads] = useState<Map<string, UploadProgress>>(new Map());
+  const { mutate } = useSWRConfig();
 
   const uploadFile = useCallback(async (file: File, studyId: string): Promise<UploadedFile> => {
     const fileName = file.name;
@@ -143,6 +145,10 @@ export function useFileUpload(): UseFileUploadReturn {
         xhr.send(formData);
       });
 
+      // Revalidate all SWR caches for this study
+      mutate(`/api/studies/${studyId}`);
+      mutate(`/api/studies/${studyId}/documents`);
+
       return uploadedFile;
 
     } catch (error) {
@@ -160,7 +166,7 @@ export function useFileUpload(): UseFileUploadReturn {
 
       throw error;
     }
-  }, []);
+  }, [mutate]);
 
   const clearUpload = useCallback((fileName: string) => {
     setUploads(prev => {

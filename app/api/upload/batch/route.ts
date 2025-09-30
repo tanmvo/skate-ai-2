@@ -5,8 +5,9 @@ import { storeFile, validateFile } from "@/lib/file-storage";
 import { extractTextFromBuffer } from "@/lib/document-processing";
 import { chunkText } from "@/lib/document-chunking";
 import { generateBatchEmbeddings, serializeEmbedding } from "@/lib/voyage-embeddings";
-import { trackBatchUploadEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
+import { trackBatchUploadEvent, trackErrorEvent, trackStudyEvent } from "@/lib/analytics/server-analytics";
 import { invalidateStudyMetadataOnDocumentChange } from "@/lib/metadata-collector";
+import { generateStudySummary } from "@/lib/summary-generation";
 
 // In-memory concurrency tracking
 const userConcurrency = new Map<string, number>();
@@ -377,6 +378,42 @@ async function processBatchAsync(
       });
 
       throw new Error(`Batch processing completed but final cache synchronization failed: ${cacheError instanceof Error ? cacheError.message : 'Unknown cache error'}`);
+    }
+
+    // Trigger summary regeneration (non-blocking)
+    try {
+      console.log(`Triggering summary regeneration for study ${studyId} after batch upload ${batchId}`);
+      const result = await generateStudySummary(studyId);
+
+      if (result) {
+        await prisma.study.update({
+          where: { id: studyId },
+          data: { summary: result.summary },
+        });
+
+        console.log(`Summary regenerated for study ${studyId} (${result.summary.length} chars, ${result.metadata.generationTimeMs}ms)`);
+
+        // Track analytics
+        await trackStudyEvent('summary_generated', {
+          studyId,
+          documentCount: result.metadata.documentCount,
+          chunksAnalyzed: result.metadata.totalChunks,
+          generationTimeMs: result.metadata.generationTimeMs,
+          summaryLength: result.summary.length,
+          reason: 'batch_completed',
+          batchId,
+        }, userId);
+      }
+    } catch (error) {
+      // Silent failure - don't block batch processing
+      console.error(`Summary regeneration failed for study ${studyId} after batch ${batchId}:`, error);
+      await trackErrorEvent('summary_generation_failed', {
+        errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        endpoint: 'processBatchAsync',
+        statusCode: 500,
+        batchId,
+      }, userId);
     }
 
   } catch (error) {

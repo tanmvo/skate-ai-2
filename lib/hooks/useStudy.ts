@@ -23,6 +23,7 @@ export interface StudyMessage {
 export interface StudyWithDetails {
   id: string;
   name: string;
+  summary?: string | null;
   createdAt: string;
   updatedAt: string;
   userId: string;
@@ -66,7 +67,7 @@ export function useStudy(studyId: string) {
     studyId ? `/api/studies/${studyId}` : null,
     () => fetchStudy(studyId),
     {
-      revalidateOnFocus: false,
+      revalidateOnFocus: true, // Enable refetch on focus to catch summary updates
       revalidateOnReconnect: true,
       errorRetryCount: 2,
     }

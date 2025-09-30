@@ -4,9 +4,19 @@ const summaryPrefilledResponse: PromptSection = {
   id: 'summary-prefilled-response',
   content: `## 10. Prefilled Response (GUIDE OUTPUT STYLE)
 
-I'll analyze all the uploaded documents to understand the scope and generate a concise study summary.
+Based on the document excerpts provided, your response should begin immediately with the summary text. No preamble, no analysis explanation, just the summary paragraph itself.
 
-[Begin analysis of the uploaded research study documents]`,
+Example good response format:
+"This study explored how designers manage client communication through interviews with five freelance professionals. Participants discussed workflow challenges around time tracking and invoicing, with one designer noting they spend 'almost 10 hours a month just chasing invoices.'"
+
+Example bad response format:
+"Let me analyze the documents to understand the full scope of this research study.
+
+<thinking>
+Analyzing document types...
+</thinking>
+
+This study explored..."`,
   variables: []
 };
 

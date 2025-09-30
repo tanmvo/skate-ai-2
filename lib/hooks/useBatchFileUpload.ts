@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import useSWR from "swr";
+import useSWR, { useSWRConfig } from "swr";
 
 interface BatchStatusApiResponse {
   batchId: string;
@@ -83,6 +83,7 @@ export function useBatchFileUpload(): UseBatchFileUploadReturn {
   const [isPolling, setIsPolling] = useState(false);
   const originalFilesRef = useRef<File[]>([]);
   const studyIdRef = useRef<string>('');
+  const { mutate: globalMutate } = useSWRConfig();
 
   // SWR for batch status polling
   const shouldFetch = batchState.batchId && isPolling &&
@@ -224,6 +225,10 @@ export function useBatchFileUpload(): UseBatchFileUploadReturn {
                   url: typedFileData.url || '',
                   };
                 });
+
+              // Revalidate all SWR caches for this study
+              globalMutate(`/api/studies/${studyId}`);
+              globalMutate(`/api/studies/${studyId}/documents`);
 
               resolve(completedFiles);
             } else if (latestData.status === 'failed') {

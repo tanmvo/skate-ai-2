@@ -1,20 +1,20 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle, RefreshCw, ArrowUp } from "lucide-react";
-import { toast } from "sonner";
 import { Citation } from "@/lib/types/citations";
-import { ProgressiveMessage } from "./ProgressiveMessage";
-import { motion } from "framer-motion";
+import { MessageList } from "./MessageList";
+import { ChatInput } from "./ChatInput";
+import { ChatZeroState } from "./ChatZeroState";
 import { useChatManager } from "@/lib/hooks/useChatManager";
 import { useMessages } from "@/lib/hooks/useMessages";
+import { useChatStream } from "@/lib/hooks/useChatStream";
 import { SimpleChatHeader } from "./SimpleChatHeader";
 import { useAnalytics } from "@/lib/analytics/hooks/use-analytics";
-import { sanitizeError, calculateRetryDelay, sleep, RetryState, DEFAULT_RETRY_STATE } from "@/lib/error-handling";
+import { calculateRetryDelay, sleep, RetryState, DEFAULT_RETRY_STATE } from "@/lib/error-handling";
+import { useStudy } from "@/lib/hooks/useStudy";
+import { useDocuments } from "@/lib/hooks/useDocuments";
+import { Button } from "../ui/button";
+import { AlertCircle, RefreshCcw } from "lucide-react";
 
 interface ChatPanelProps {
   studyId: string;
@@ -29,15 +29,22 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const [messagesLoaded, setMessagesLoaded] = useState(false);
   const [retryState, setRetryState] = useState<RetryState>(DEFAULT_RETRY_STATE);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
-  
+
   // Analytics tracking
   const { trackMessageCopy } = useAnalytics();
 
+  // Get study data for summary
+  const { study, isLoading: isStudyLoading } = useStudy(studyId);
+
+  // Get documents to check if study has any uploaded
+  const { documents } = useDocuments(studyId);
+  const hasDocuments = documents.length > 0;
+
   // Use the chat manager hook
-  const { 
-    currentChatId, 
+  const {
+    currentChatId,
     currentChat,
-    loading: chatLoading, 
+    loading: chatLoading,
     error: chatError,
     isCreatingNew,
     isGeneratingTitle,
@@ -54,117 +61,62 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   } = useMessages(studyId, currentChatId);
 
 
+  const resetRetryState = useCallback(() => {
+    setRetryState(DEFAULT_RETRY_STATE);
+    setPendingMessage(null);
+  }, []);
+
   const {
     messages,
     setMessages,
     sendMessage,
     status,
-    // stop, // Not needed for current implementation  
     regenerate,
-  } = useChat({
-    id: currentChatId || 'loading', // Use chatId instead of studyId
-    experimental_throttle: 100, // 60fps throttling
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      fetch: async (url: RequestInfo | URL, options?: RequestInit) => {
-        try {
-          const response = await fetch(url, {
-            ...options,
-            headers: {
-              'Content-Type': 'application/json',
-              ...options?.headers,
-            },
-          });
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+  } = useChatStream({
+    currentChatId,
+    currentChatTitle: currentChat?.title,
+    retryState,
+    pendingMessage,
+    onMessagesUpdate: mutateMessages,
+    onResetRetryState: resetRetryState,
+    onSetStreamError: setStreamError,
+    onSetPendingMessage: setPendingMessage,
+    onSetRetryState: setRetryState,
+    onPerformRetry: async () => {
+      // Retry logic for overloaded errors
+      if (!pendingMessage || retryState.attempt >= retryState.maxAttempts) return;
+
+      const nextAttempt = retryState.attempt + 1;
+      const delayMs = calculateRetryDelay(nextAttempt);
+
+      setRetryState(prev => ({
+        ...prev,
+        attempt: nextAttempt,
+        isRetrying: true,
+        retryCountdown: Math.ceil(delayMs / 1000)
+      }));
+
+      // Countdown timer
+      const countdownInterval = setInterval(() => {
+        setRetryState(prev => {
+          if (prev.retryCountdown <= 1) {
+            clearInterval(countdownInterval);
+            return { ...prev, retryCountdown: 0 };
           }
-          
-          return response;
-        } catch (error) {
-          console.error('Transport error:', error);
-          throw error;
-        }
-      },
-      prepareSendMessagesRequest({ messages, body }) {
-        return {
-          body: {
-            id: currentChatId, // Use our chatId for the request
-            message: messages.at(-1), // Send last message as expected by API
-            ...body,
-          },
-        };
-      },
-    }),
-    onFinish: async () => {
-      // Assistant messages are saved server-side, now invalidate SWR cache
-      mutateMessages();
-
-      // Clear retry state on successful completion
-      resetRetryState();
-      setStreamError(null);
-
-      // Trigger title generation after 6 messages (3 exchanges)
-      if (messages.length === 6 && currentChatId && currentChat?.title === 'New Chat') {
-        generateTitleInBackground(currentChatId);
-      }
-    },
-    onError: async (error) => {
-      console.error('Chat error:', error);
-
-      const sanitized = sanitizeError(error);
-
-      // Handle overloaded errors with automatic retry
-      if (sanitized.code === 'OVERLOADED_ERROR') {
-        if (retryState.attempt < retryState.maxAttempts) {
-          // Store the message for retry
-          if (!pendingMessage && input.trim()) {
-            setPendingMessage(input.trim());
-          }
-
-          setStreamError(`Claude is experiencing high load. Retrying in ${Math.ceil(calculateRetryDelay(retryState.attempt + 1) / 1000)} seconds...`);
-
-          // Start automatic retry
-          performRetry();
-          return;
-        } else {
-          // Max retries reached
-          setStreamError('Claude is currently overloaded. Please try again in a few minutes.');
-          resetRetryState();
-          toast.error('Claude is currently overloaded. Please try again in a few minutes.', {
-            action: {
-              label: "Retry",
-              onClick: () => {
-                setStreamError(null);
-                resetRetryState();
-                regenerate();
-              },
-            },
-          });
-          return;
-        }
-      }
-
-      // Reset retry state for non-overloaded errors
-      resetRetryState();
-
-      if (error.message?.includes('rate limit')) {
-        toast.error('Too many requests. Please wait a moment before trying again.');
-      } else if (error.message?.includes('service temporarily unavailable')) {
-        toast.error('AI service is temporarily unavailable. Please try again later.');
-      } else {
-        setStreamError(sanitized.message);
-        toast.error(sanitized.message, {
-          action: {
-            label: "Retry",
-            onClick: () => {
-              setStreamError(null);
-              regenerate();
-            },
-          },
+          return { ...prev, retryCountdown: prev.retryCountdown - 1 };
         });
-      }
+      }, 1000);
+
+      await sleep(delayMs);
+
+      // Clear error state and retry
+      setStreamError(null);
+      sendMessage({
+        role: 'user',
+        parts: [{ type: 'text', text: pendingMessage }],
+      });
     },
+    onGenerateTitle: generateTitleInBackground,
   });
 
   const scrollToBottom = () => {
@@ -207,45 +159,8 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
     }
   }, []);
 
-  // Retry logic for overloaded errors
-  const performRetry = useCallback(async () => {
-    if (!pendingMessage || retryState.attempt >= retryState.maxAttempts) return;
-
-    const nextAttempt = retryState.attempt + 1;
-    const delayMs = calculateRetryDelay(nextAttempt);
-
-    setRetryState(prev => ({
-      ...prev,
-      attempt: nextAttempt,
-      isRetrying: true,
-      retryCountdown: Math.ceil(delayMs / 1000)
-    }));
-
-    // Countdown timer
-    const countdownInterval = setInterval(() => {
-      setRetryState(prev => {
-        if (prev.retryCountdown <= 1) {
-          clearInterval(countdownInterval);
-          return { ...prev, retryCountdown: 0 };
-        }
-        return { ...prev, retryCountdown: prev.retryCountdown - 1 };
-      });
-    }, 1000);
-
-    await sleep(delayMs);
-
-    // Clear error state and retry
-    setStreamError(null);
-    sendMessage({
-      role: 'user',
-      parts: [{ type: 'text', text: pendingMessage }],
-    });
-  }, [pendingMessage, retryState.attempt, retryState.maxAttempts, sendMessage]);
-
-  const resetRetryState = useCallback(() => {
-    setRetryState(DEFAULT_RETRY_STATE);
-    setPendingMessage(null);
-  }, []);
+  // Derive summary generation state from SWR
+  const isGeneratingSummary = hasDocuments && !study?.summary && !isStudyLoading;
 
   useEffect(() => {
     scrollToBottom();
@@ -254,7 +169,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
   const handleSubmit = useCallback((event: React.FormEvent) => {
     event.preventDefault();
 
-    if (status !== 'ready' || !input.trim() || retryState.isRetrying) return;
+    if (!hasDocuments || status !== 'ready' || !input.trim() || retryState.isRetrying) return;
 
     const userMessage = input.trim();
 
@@ -270,7 +185,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
 
     setInput('');
     resetHeight();
-  }, [input, sendMessage, status, resetHeight, retryState.isRetrying, resetRetryState]);
+  }, [hasDocuments, input, sendMessage, status, resetHeight, retryState.isRetrying, resetRetryState]);
 
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
@@ -290,7 +205,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
 
   const handleMessageCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
-    toast.success('Copied to clipboard');
+    // toast.success('Copied to clipboard');
     
     // Track the copy action - using default 'general_response' type for now
     trackMessageCopy(
@@ -324,7 +239,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
             <AlertCircle className="h-12 w-12 text-destructive mx-auto mb-4" />
             <p className="text-destructive mb-4">{messagesError.message}</p>
             <Button onClick={() => mutateMessages()} variant="outline">
-              <RefreshCw className="h-4 w-4 mr-2" />
+              <RefreshCcw className="h-4 w-4 mr-2" />
               Retry
             </Button>
           </div>
@@ -346,7 +261,7 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
           </p>
         </div>
         <div className="flex-1 flex items-center justify-center">
-          <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
+          <RefreshCcw className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       </div>
     );
@@ -390,137 +305,37 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
       </div>
 
       <div className="flex flex-col min-w-0 gap-6 flex-1 overflow-y-scroll pt-4 relative">
-        {messages.length === 0 ? (
-          <div className="max-w-3xl mx-auto md:mt-20 px-8 size-full flex flex-col justify-center">
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ delay: 0.5 }}
-              className="text-2xl font-semibold"
-            >
-              Welcome to your research assistant!
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ delay: 0.6 }}
-              className="text-2xl text-muted-foreground"
-            >
-              What would you like to explore in your documents?
-            </motion.div>
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              transition={{ delay: 0.7 }}
-              className="mt-8 space-y-3"
-            >
-              <p className="text-sm font-medium text-foreground">Try asking:</p>
-              <div className="space-y-2 text-sm text-muted-foreground">
-                <p>• &ldquo;What are the main themes in these interviews?&rdquo;</p>
-                <p>• &ldquo;Find quotes about user frustrations&rdquo;</p>
-                <p>• &ldquo;What patterns do you see across documents?&rdquo;</p>
-              </div>
-            </motion.div>
-          </div>
+        {!hasDocuments ? (
+          <ChatZeroState />
         ) : (
-          messages.map((message) => {
-            return (
-              <ProgressiveMessage
-                key={message.id}
-                message={message}
-                persistenceError={false} // Server-side persistence - no client errors
-                onCitationClick={handleCitationClick}
-                onRetryPersistence={() => {
-                  // No-op: Server handles all persistence now
-                }}
-                onCopy={(text: string) => handleMessageCopy(text)}
-                formatTimestamp={formatTimestamp}
-              />
-            );
-          })
+          <MessageList
+            studyId={studyId}
+            study={study}
+            messages={messages}
+            isGeneratingSummary={isGeneratingSummary}
+            onCitationClick={handleCitationClick}
+            onMessageCopy={handleMessageCopy}
+            formatTimestamp={formatTimestamp}
+          />
         )}
         <div ref={messagesEndRef} />
       </div>
 
-      <form className="flex mx-auto px-4 bg-background pb-4 md:pb-6 gap-2 w-full md:max-w-3xl">
-        <div className="relative w-full flex flex-col gap-4">
-          <Textarea
-            ref={textareaRef}
-            value={input}
-            onChange={handleInputChange}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                e.preventDefault();
-                if (status === 'ready' && input.trim() && !retryState.isRetrying) {
-                  handleSubmit(e);
-                }
-              }
-            }}
-            placeholder={retryState.isRetrying ? "Retrying..." : "Ask a question about your documents..."}
-            className="min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-2xl !text-base bg-muted pb-10 dark:border-zinc-700"
-            rows={2}
-            disabled={status !== 'ready' || retryState.isRetrying}
-          />
-          
-          <div className="absolute bottom-0 right-0 p-2 w-fit flex flex-row justify-end">
-            {status !== 'ready' || retryState.isRetrying ? (
-              <Button
-                className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
-                onClick={(e) => {
-                  e.preventDefault();
-                  // Add stop functionality if needed
-                }}
-                disabled
-              >
-                <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-              </Button>
-            ) : (
-              <Button
-                type="submit"
-                disabled={!input.trim() || status !== 'ready' || retryState.isRetrying}
-                className="rounded-full p-1.5 h-fit border dark:border-zinc-600"
-                onClick={(e) => {
-                  e.preventDefault();
-                  handleSubmit(e);
-                }}
-              >
-                <ArrowUp className="h-3.5 w-3.5" />
-              </Button>
-            )}
-          </div>
-        </div>
-      </form>
-      
-      {/* Error messages positioned outside the form */}
-      <div className="px-4 pb-4">
-        {(streamError || retryState.isRetrying) && (
-          <div className="flex items-center gap-2 mt-2 p-2 bg-destructive/10 rounded text-xs text-destructive">
-            <AlertCircle className="h-3 w-3 flex-shrink-0" />
-            <span>
-              {retryState.isRetrying && retryState.retryCountdown > 0
-                ? `Claude is experiencing high load. Retrying in ${retryState.retryCountdown} seconds...`
-                : streamError}
-            </span>
-            {streamError && !retryState.isRetrying && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-auto p-1 ml-auto text-destructive hover:text-destructive"
-                onClick={() => {
-                  setStreamError(null);
-                  resetRetryState();
-                  regenerate();
-                }}
-              >
-                <RefreshCw className="h-3 w-3" />
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+      <ChatInput
+        textareaRef={textareaRef}
+        input={input}
+        hasDocuments={hasDocuments}
+        status={status}
+        retryState={retryState}
+        streamError={streamError}
+        onInputChange={handleInputChange}
+        onSubmit={handleSubmit}
+        onRetry={regenerate}
+        onResetRetryState={() => {
+          setStreamError(null);
+          resetRetryState();
+        }}
+      />
     </div>
   );
 }

@@ -135,12 +135,18 @@ export async function trackSearchEvent(
  * Track study management events
  */
 export async function trackStudyEvent(
-  event: 'study_created' | 'study_renamed' | 'study_deleted' | 'study_accessed',
+  event: 'study_created' | 'study_renamed' | 'study_deleted' | 'study_accessed' | 'summary_generated' | 'summary_deleted',
   properties: {
     studyId: string
     studyName?: string
     documentCount?: number
     messageCount?: number
+    chunksAnalyzed?: number
+    generationTimeMs?: number
+    summaryLength?: number
+    reason?: string
+    deletedDocumentId?: string
+    batchId?: string
   },
   userId?: string
 ) {
@@ -149,6 +155,13 @@ export async function trackStudyEvent(
     study_name_length: properties.studyName?.length,
     document_count: properties.documentCount,
     message_count: properties.messageCount,
+    chunks_analyzed: properties.chunksAnalyzed,
+    generation_time_ms: properties.generationTimeMs,
+    generation_time_seconds: properties.generationTimeMs ? Math.round(properties.generationTimeMs / 1000 * 10) / 10 : undefined,
+    summary_length: properties.summaryLength,
+    reason: properties.reason,
+    deleted_document_id: properties.deletedDocumentId,
+    batch_id: properties.batchId,
   }, userId)
 }
 
@@ -192,13 +205,15 @@ export async function trackBatchUploadEvent(
  * Track error events
  */
 export async function trackErrorEvent(
-  event: 'api_error_occurred' | 'upload_error_occurred' | 'chat_error_occurred' | 'batch_upload_error_occurred',
+  event: 'api_error_occurred' | 'upload_error_occurred' | 'chat_error_occurred' | 'batch_upload_error_occurred' | 'summary_generation_failed',
   properties: {
     errorType: string
     errorMessage: string
     endpoint?: string
     statusCode?: number
     stackTrace?: string
+    deletedDocumentId?: string
+    batchId?: string
   },
   userId?: string
 ) {
@@ -209,6 +224,8 @@ export async function trackErrorEvent(
     status_code: properties.statusCode,
     // Don't log full stack trace for privacy, just error name
     has_stack_trace: !!properties.stackTrace,
+    deleted_document_id: properties.deletedDocumentId,
+    batch_id: properties.batchId,
   }, userId)
 }
 

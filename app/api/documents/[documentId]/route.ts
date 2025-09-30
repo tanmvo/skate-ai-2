@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { requireAuth, validateDocumentOwnership } from "@/lib/auth";
 import { deleteDocumentFiles } from "@/lib/file-storage/cleanup";
 import { invalidateStudyMetadataOnDocumentChange } from "@/lib/metadata-collector";
+import { generateStudySummary } from "@/lib/summary-generation";
+import { trackStudyEvent, trackErrorEvent } from "@/lib/analytics/server-analytics";
 
 export async function GET(
   request: NextRequest,
@@ -158,6 +160,66 @@ export async function DELETE(
         { error: `Document deleted but cache synchronization failed: ${cacheError instanceof Error ? cacheError.message : 'Unknown cache error'}` },
         { status: 500 }
       );
+    }
+
+    // Check remaining document count and handle summary
+    try {
+      const remainingDocCount = await prisma.document.count({
+        where: {
+          studyId: document.studyId,
+          status: 'READY',
+        },
+      });
+
+      if (remainingDocCount === 0) {
+        // Delete summary when no documents remain
+        console.log(`Deleting summary for study ${document.studyId} (no documents remaining)`);
+        await prisma.study.update({
+          where: { id: document.studyId },
+          data: { summary: null },
+        });
+
+        // Track deletion
+        await trackStudyEvent('summary_deleted', {
+          studyId: document.studyId,
+          reason: 'document_deleted',
+          deletedDocumentId: documentId,
+        }, userId);
+      } else {
+        // Regenerate summary with remaining documents
+        console.log(`Triggering summary regeneration for study ${document.studyId} after document deletion (${remainingDocCount} documents remaining)`);
+        const result = await generateStudySummary(document.studyId);
+
+        if (result) {
+          await prisma.study.update({
+            where: { id: document.studyId },
+            data: { summary: result.summary },
+          });
+
+          console.log(`Summary regenerated for study ${document.studyId} (${result.summary.length} chars, ${result.metadata.generationTimeMs}ms)`);
+
+          // Track analytics
+          await trackStudyEvent('summary_generated', {
+            studyId: document.studyId,
+            documentCount: result.metadata.documentCount,
+            chunksAnalyzed: result.metadata.totalChunks,
+            generationTimeMs: result.metadata.generationTimeMs,
+            summaryLength: result.summary.length,
+            reason: 'document_deleted',
+            deletedDocumentId: documentId,
+          }, userId);
+        }
+      }
+    } catch (error) {
+      // Silent failure - don't block document deletion
+      console.error(`Summary handling failed for study ${document.studyId} after deleting document ${documentId}:`, error);
+      await trackErrorEvent('summary_generation_failed', {
+        errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        endpoint: 'DELETE /api/documents/[documentId]',
+        statusCode: 500,
+        deletedDocumentId: documentId,
+      }, userId);
     }
 
     return NextResponse.json({ success: true });
