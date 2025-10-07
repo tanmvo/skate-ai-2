@@ -28,9 +28,9 @@ describe('ProgressiveMessage Core Functionality', () => {
       };
 
       renderWithProviders(
-        <ProgressiveMessage 
-          message={userMessage} 
-          onCitationClick={vi.fn()} 
+        <ProgressiveMessage
+          message={userMessage}
+          formatTimestamp={(date) => date.toISOString()}
         />
       );
 
@@ -49,9 +49,9 @@ describe('ProgressiveMessage Core Functionality', () => {
       };
 
       renderWithProviders(
-        <ProgressiveMessage 
-          message={assistantMessage} 
-          onCitationClick={vi.fn()} 
+        <ProgressiveMessage
+          message={assistantMessage}
+          formatTimestamp={(date) => date.toISOString()}
         />
       );
 
@@ -67,20 +67,19 @@ describe('ProgressiveMessage Core Functionality', () => {
   });
 
   describe('Component Structure', () => {
-    it('should handle citation callback prop', () => {
-      const onCitationClick = vi.fn();
-      const messageWithCitation = {
+    it('should render message with formatted text', () => {
+      const messageWithFormatting = {
         id: 'msg-5',
         role: 'assistant' as const,
-        parts: [{ type: 'text', text: 'According to the research [1], the findings show...' }],
-        content: 'According to the research [1], the findings show...',
+        parts: [{ type: 'text', text: 'According to the research, the findings show...' }],
+        content: 'According to the research, the findings show...',
         createdAt: new Date(),
       };
 
       renderWithProviders(
-        <ProgressiveMessage 
-          message={messageWithCitation} 
-          onCitationClick={onCitationClick} 
+        <ProgressiveMessage
+          message={messageWithFormatting}
+          formatTimestamp={(date) => date.toISOString()}
         />
       );
 

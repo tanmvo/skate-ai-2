@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { validateStudyOwnership } from "@/lib/auth";
-import { Citation } from "@/lib/types/citations";
 
 export async function GET(
   request: NextRequest,
@@ -58,12 +57,11 @@ export async function POST(
   context: { params: Promise<{ studyId: string; chatId: string }> }
 ) {
   const params = await context.params;
-  
+
   try {
-    const { role, content, citations }: { 
-      role: string; 
-      content: string; 
-      citations?: Citation[] 
+    const { role, content }: {
+      role: string;
+      content: string;
     } = await request.json();
 
     if (!role || !content) {
@@ -108,7 +106,6 @@ export async function POST(
       data: {
         role: role as 'USER' | 'ASSISTANT',
         content,
-        citations: citations ? JSON.parse(JSON.stringify(citations)) : null,
         chatId: params.chatId,
         studyId: params.studyId, // Denormalized for easier queries
       },

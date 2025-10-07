@@ -115,7 +115,7 @@ describe('ChatPanel - Summary Feature', () => {
         documents: [],
       });
 
-      render(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      render(<ChatPanel studyId={mockStudyId}  />);
 
       // Should show upload prompt
       expect(screen.getByText('Upload documents to get started')).toBeInTheDocument();
@@ -128,7 +128,7 @@ describe('ChatPanel - Summary Feature', () => {
         documents: [],
       });
 
-      render(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      render(<ChatPanel studyId={mockStudyId}  />);
 
       const textarea = screen.getByPlaceholderText(/Upload documents to start chatting/i);
       expect(textarea).toBeDisabled();
@@ -156,7 +156,7 @@ describe('ChatPanel - Summary Feature', () => {
         isLoading: false, // Not loading, so we know summary truly doesn't exist
       });
 
-      render(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      render(<ChatPanel studyId={mockStudyId}  />);
 
       // Should show loading message
       expect(screen.getByText('Generating study summary...')).toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('ChatPanel - Summary Feature', () => {
         } as any,
       });
 
-      render(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      render(<ChatPanel studyId={mockStudyId}  />);
 
       const textarea = screen.getByPlaceholderText(/Ask a question about your documents/i);
       expect(textarea).not.toBeDisabled();
@@ -210,7 +210,7 @@ describe('ChatPanel - Summary Feature', () => {
         } as any,
       });
 
-      render(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      render(<ChatPanel studyId={mockStudyId}  />);
 
       // Should show the summary
       expect(screen.getByText(mockSummary)).toBeInTheDocument();
@@ -235,7 +235,7 @@ describe('ChatPanel - Summary Feature', () => {
         } as any,
       });
 
-      render(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      render(<ChatPanel studyId={mockStudyId}  />);
 
       // Should NOT show loading message
       expect(screen.queryByText('Generating study summary...')).not.toBeInTheDocument();
@@ -245,7 +245,7 @@ describe('ChatPanel - Summary Feature', () => {
   describe('State Transitions', () => {
     it('should transition from zero-state to loading when documents are uploaded', async () => {
       const { rerender } = render(
-        <ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />
+        <ChatPanel studyId={mockStudyId}  />
       );
 
       // Initial: No documents
@@ -272,7 +272,7 @@ describe('ChatPanel - Summary Feature', () => {
       });
 
       // Rerender to apply new state
-      rerender(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      rerender(<ChatPanel studyId={mockStudyId}  />);
 
       // Should now show loading state
       expect(screen.getByText('Generating study summary...')).toBeInTheDocument();
@@ -301,7 +301,7 @@ describe('ChatPanel - Summary Feature', () => {
       });
 
       const { rerender } = render(
-        <ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />
+        <ChatPanel studyId={mockStudyId}  />
       );
 
       expect(screen.getByText('Generating study summary...')).toBeInTheDocument();
@@ -319,7 +319,7 @@ describe('ChatPanel - Summary Feature', () => {
         } as any,
       });
 
-      rerender(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      rerender(<ChatPanel studyId={mockStudyId}  />);
 
       // Should show summary, not loading
       expect(screen.getByText(mockSummary)).toBeInTheDocument();
@@ -347,7 +347,7 @@ describe('ChatPanel - Summary Feature', () => {
       });
 
       const { rerender } = render(
-        <ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />
+        <ChatPanel studyId={mockStudyId}  />
       );
 
       expect(screen.getByText('Study summary')).toBeInTheDocument();
@@ -369,7 +369,7 @@ describe('ChatPanel - Summary Feature', () => {
         } as any,
       });
 
-      rerender(<ChatPanel studyId={mockStudyId} onCitationClick={mockOnCitationClick} />);
+      rerender(<ChatPanel studyId={mockStudyId}  />);
 
       // Should return to zero-state
       expect(screen.getByText('Upload documents to get started')).toBeInTheDocument();

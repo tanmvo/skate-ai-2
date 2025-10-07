@@ -10,14 +10,15 @@ const outputFormatting: PromptSection = {
 - Use **bold** for section titles and key concepts
 - Use proper header hierarchy (##, ###) for major sections
 
-### Citation Format:
-- Document references: [Doc Title, p.X] or [Doc Title, section Y]
-- Direct quotes: Use quotation marks with proper attribution
-- Multiple sources: Reference all relevant documents supporting a point
+### Document References:
+- Reference documents by name when discussing findings
+- Use direct quotes with document attribution when relevant
+- Example: "According to user-interviews-round1.pdf, users reported..."
+- Mention specific details like page numbers or sections when known
 
 ### Response Organization:
 1. **Executive Summary**: Lead with key findings
-2. **Supporting Evidence**: Provide detailed analysis with citations
+2. **Supporting Evidence**: Provide detailed analysis with document references
 3. **Cross-Document Patterns**: Identify themes across materials
 4. **Actionable Insights**: Conclude with research implications
 5. **Follow-up Questions**: Suggest additional analysis directions`,

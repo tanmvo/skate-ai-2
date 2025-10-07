@@ -3,7 +3,6 @@ import { Bot, AlertCircle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { isFinalTextPart } from "@/lib/utils/message-parts";
-import { Citation } from "@/lib/types/citations";
 import { MarkdownRenderer } from "@/components/chat/MarkdownRenderer";
 import { MessageActions } from "@/components/chat/MessageActions";
 import { useToolProgress } from "@/lib/hooks/useToolProgress";
@@ -14,7 +13,6 @@ import { LoadingSpinner } from "@/components/ui/loading-spinner";
 interface ProgressiveMessageProps {
   message: UIMessage;
   persistenceError?: boolean;
-  onCitationClick?: (citation: Citation) => void;
   onRetryPersistence?: () => void;
   onCopy?: (text: string) => void;
   formatTimestamp: (date: Date) => string;

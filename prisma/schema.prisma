@@ -91,7 +91,6 @@ model ChatMessage {
   id            String      @id @default(cuid())
   role          MessageRole
   content       String      @db.Text
-  citations     Json?       
   toolCalls     Json?       // NEW: Persisted tool call execution data
   messageParts  Json?       // NEW: Complete AI SDK v5 message parts (optional backup)
   timestamp     DateTime    @default(now())

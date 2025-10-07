@@ -2,7 +2,6 @@
 
 import { UIMessage } from "@ai-sdk/react";
 import { ProgressiveMessage } from "./ProgressiveMessage";
-import { Citation } from "@/lib/types/citations";
 import { StudyWithDetails } from "@/lib/hooks/useStudy";
 
 interface MessageListProps {
@@ -10,7 +9,6 @@ interface MessageListProps {
   study: StudyWithDetails | undefined;
   messages: UIMessage[];
   isGeneratingSummary: boolean;
-  onCitationClick: (citation: Citation) => void;
   onMessageCopy: (text: string) => void;
   formatTimestamp: (timestamp: Date) => string;
 }
@@ -20,7 +18,6 @@ export function MessageList({
   study,
   messages,
   isGeneratingSummary,
-  onCitationClick,
   onMessageCopy,
   formatTimestamp,
 }: MessageListProps) {
@@ -41,7 +38,6 @@ export function MessageList({
             ],
           }}
           persistenceError={false}
-          onCitationClick={onCitationClick}
           onRetryPersistence={() => {}}
           onCopy={onMessageCopy}
           formatTimestamp={formatTimestamp}
@@ -59,7 +55,6 @@ export function MessageList({
             parts: [{ type: 'text' as const, text: study.summary }],
           }}
           persistenceError={false}
-          onCitationClick={onCitationClick}
           onRetryPersistence={() => {}}
           onCopy={onMessageCopy}
           formatTimestamp={formatTimestamp}
@@ -73,7 +68,6 @@ export function MessageList({
             key={message.id}
             message={message}
             persistenceError={false}
-            onCitationClick={onCitationClick}
             onRetryPersistence={() => {}}
             onCopy={onMessageCopy}
             formatTimestamp={formatTimestamp}

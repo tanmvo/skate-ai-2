@@ -30,35 +30,17 @@ export const mockLLMResponses = {
 - "I wish this worked better on my phone"
 - "Loading takes too long, I usually give up"
 
-*Based on analysis of 15 user interview documents*`,
-    citations: [
-      {
-        id: 'cite-doc-1',
-        documentId: 'doc-user-interviews-1',
-        documentName: 'user-interviews-round1.pdf',
-        relevantText: 'The current navigation is confusing and hard to use. Users consistently mentioned difficulty finding key features.',
-        pageNumber: 5
-      },
-      {
-        id: 'cite-doc-2',
-        documentId: 'doc-user-interviews-2', 
-        documentName: 'user-feedback-survey.pdf',
-        relevantText: 'Loading times averaging 3.2 seconds with 65% of users reporting frustration with performance.',
-        pageNumber: 12
-      }
-    ]
+*Based on analysis of 15 user interview documents*`
   },
 
   // Empty/no results response
   emptyResponse: {
-    content: "I couldn't find relevant information about this topic in the uploaded documents. You might want to try rephrasing your question or uploading additional documents that contain the information you're looking for.",
-    citations: []
+    content: "I couldn't find relevant information about this topic in the uploaded documents. You might want to try rephrasing your question or uploading additional documents that contain the information you're looking for."
   },
 
   // Error/problematic response
   errorResponse: {
-    content: "I apologize, but I encountered an issue while analyzing your documents. Please try your question again.",
-    citations: []
+    content: "I apologize, but I encountered an issue while analyzing your documents. Please try your question again."
   },
 
   // Tool call response with search results
@@ -116,20 +98,12 @@ Key points for this finding:
 
 `).join('\n')}
 
-*This analysis is based on extensive document review and contains ${100} individual findings.*`,
-    citations: Array.from({ length: 25 }, (_, i) => ({
-      id: `cite-large-${i}`,
-      documentId: `doc-large-${i}`,
-      documentName: `document-${i + 1}.pdf`,
-      relevantText: `Relevant excerpt ${i + 1} containing important information for the analysis.`,
-      pageNumber: i + 1
-    }))
+*This analysis is based on extensive document review and contains ${100} individual findings.*`
   },
 
   // Malformed response for error testing
   malformedResponse: {
-    content: null as any, // Intentionally malformed
-    citations: 'not-an-array' as any // Intentionally wrong type
+    content: null as any // Intentionally malformed
   },
 
   // Simple question response
@@ -140,16 +114,7 @@ Key points for this finding:
 2. **Performance** - Need to optimize loading times and responsiveness  
 3. **Mobile Support** - Users want better mobile experience
 
-These themes appear consistently across multiple user feedback documents.`,
-    citations: [
-      {
-        id: 'cite-simple-1',
-        documentId: 'doc-themes-1',
-        documentName: 'user-feedback.pdf',
-        relevantText: 'Users consistently mention navigation issues and slow performance as primary concerns.',
-        pageNumber: 3
-      }
-    ]
+These themes appear consistently across multiple user feedback documents.`
   }
 };
 
@@ -160,7 +125,6 @@ export const createStreamingData = (response: typeof mockLLMResponses.documentAn
   { type: 'text-delta', content: 'Based on' },
   { type: 'text-delta', content: ' your documents' },
   { type: 'text-delta', content: ', I found' },
-  { type: 'citations', citations: response.citations },
   { type: 'text-delta', content: ' several key themes...' },
   { type: 'finish', content: response.content }
 ];

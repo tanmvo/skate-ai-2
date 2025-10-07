@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ChevronDown } from "lucide-react";
 import { DocumentPanel } from "@/components/document/DocumentPanel";
@@ -8,7 +7,6 @@ import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useRouter, useParams } from "next/navigation";
 import { StudyProvider, useStudyContext } from "@/lib/contexts/StudyContext";
 import { useDocuments } from "@/lib/hooks/useDocuments";
-import { Citation } from "@/lib/types/citations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,19 +18,6 @@ function StudyPageContent() {
   const router = useRouter();
   const { study, isLoading, error, refreshStudy } = useStudyContext();
   const { deleteDocument, mutate: mutateDocuments } = useDocuments(study?.id || '');
-  const [highlightedDocumentId, setHighlightedDocumentId] = useState<string | undefined>();
-  const [citationCounts, setCitationCounts] = useState<Record<string, number>>({});
-
-  // Clear highlighting after a delay
-  useEffect(() => {
-    if (highlightedDocumentId) {
-      const timeout = setTimeout(() => {
-        setHighlightedDocumentId(undefined);
-      }, 3000); // Clear highlight after 3 seconds
-      
-      return () => clearTimeout(timeout);
-    }
-  }, [highlightedDocumentId]);
 
   const handleBackToStudies = () => {
     router.push("/");
@@ -43,17 +28,6 @@ function StudyPageContent() {
     // Refresh study data and documents list to include the new document
     refreshStudy();
     mutateDocuments();
-  };
-
-  const handleCitationClick = (citation: Citation) => {
-    // Highlight the referenced document
-    setHighlightedDocumentId(citation.documentId);
-    
-    // Update citation counts (this is a simple approach - in a real app you might want to track this more comprehensively)
-    setCitationCounts(prev => ({
-      ...prev,
-      [citation.documentId]: (prev[citation.documentId] || 0) + 1
-    }));
   };
 
   const handleDocumentDelete = async (documentId: string) => {
@@ -119,20 +93,17 @@ function StudyPageContent() {
       ) : study ? (
         <main className="flex-1 flex overflow-hidden">
           <div className="w-[30%] min-w-[300px] border-r bg-muted/30">
-            <DocumentPanel 
+            <DocumentPanel
               documents={study.documents}
               onFileUploaded={handleFileUpload}
               studyId={study.id}
-              highlightedDocumentId={highlightedDocumentId}
-              citationCounts={citationCounts}
               onDocumentDelete={handleDocumentDelete}
             />
           </div>
-          
+
           <div className="flex-1">
-            <ChatPanel 
+            <ChatPanel
               studyId={study.id}
-              onCitationClick={handleCitationClick}
             />
           </div>
         </main>

@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Citation } from "@/lib/types/citations";
 import { MessageList } from "./MessageList";
 import { ChatInput } from "./ChatInput";
 import { ChatZeroState } from "./ChatZeroState";
@@ -18,10 +17,9 @@ import { AlertCircle, RefreshCcw } from "lucide-react";
 
 interface ChatPanelProps {
   studyId: string;
-  onCitationClick?: (citation: Citation) => void;
 }
 
-export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
+export function ChatPanel({ studyId }: ChatPanelProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
@@ -199,10 +197,6 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
 
   // Removed copyToClipboard - now handled inline
 
-  const handleCitationClick = (citation: Citation) => {
-    onCitationClick?.(citation);
-  };
-
   const handleMessageCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text);
     // toast.success('Copied to clipboard');
@@ -313,7 +307,6 @@ export function ChatPanel({ studyId, onCitationClick }: ChatPanelProps) {
             study={study}
             messages={messages}
             isGeneratingSummary={isGeneratingSummary}
-            onCitationClick={handleCitationClick}
             onMessageCopy={handleMessageCopy}
             formatTimestamp={formatTimestamp}
           />

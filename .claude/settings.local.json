@@ -27,7 +27,11 @@
       "WebFetch(domain:posthog.com)",
       "WebFetch(domain:notebooklm.google)",
       "WebFetch(domain:dovetail.com)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx prisma migrate diff:*)",
+      "Bash(npx prisma migrate:*)",
+      "Bash(npx prisma db pull:*)",
+      "Bash(git checkout:*)"
     ],
     "deny": []
   }
