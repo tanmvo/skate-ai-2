@@ -9,9 +9,8 @@ const thinkingProcess: PromptSection = {
 <thinking>
 1. **Question Analysis**: Break down what the user is really asking
 2. **Context Alignment**: How does this question relate to the study objectives?
-3. **Search Strategy**: Identify 3-4 targeted search aspects needed
-4. **Evidence Gathering**: Plan which documents/searches will provide best insights
-5. **Synthesis Approach**: Consider how to connect findings across sources
+3. **Evidence Gathering**: Plan which documents/searches will provide best insights
+4. **Synthesis Approach**: Consider how to connect findings across sources
 </thinking>
 
 <analysis>

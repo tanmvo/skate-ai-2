@@ -311,7 +311,7 @@ export function createSearchTools(studyId: string) {
       description: 'Search across all documents in the current study for relevant content',
       inputSchema: z.object({
         query: z.string().describe('The search query to find relevant content'),
-        limit: z.number().min(1).max(5).optional().describe('Maximum number of results to return (default: 3)'),
+        limit: z.number().min(1).max(15).optional().describe('Maximum number of results to return (default: 3, recommended: 10-15 for multi-document analysis)'),
         minSimilarity: z.number().min(0).max(1).optional().describe('Minimum similarity score for results (default: 0.1)'),
       }),
       execute: async ({ query, limit = 3, minSimilarity = 0.1 }) => {
@@ -355,7 +355,7 @@ export function createSearchTools(studyId: string) {
       inputSchema: z.object({
         query: z.string().describe('The search query to find relevant content'),
         documentIds: z.array(z.string()).min(1).describe('Array of document IDs to search within'),
-        limit: z.number().min(1).max(5).optional().describe('Maximum number of results to return (default: 3)'),
+        limit: z.number().min(1).max(15).optional().describe('Maximum number of results to return (default: 3, recommended: 10-15 for multi-document analysis)'),
         minSimilarity: z.number().min(0).max(1).optional().describe('Minimum similarity score for results (default: 0.1)'),
       }),
       execute: async ({ query, documentIds, limit = 3, minSimilarity = 0.1 }) => {

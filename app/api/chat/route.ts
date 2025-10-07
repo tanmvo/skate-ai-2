@@ -80,7 +80,7 @@ function extractToolCallsFromParts(parts: AISDKv5MessagePart[]): PersistedToolCa
 
 export async function POST(req: NextRequest) {
   const requestStartTime = Date.now();
-  
+
   try {
     // Check API key availability first
     if (!process.env.ANTHROPIC_API_KEY) {
@@ -194,15 +194,18 @@ export async function POST(req: NextRequest) {
         execute: ({ writer: dataStream }) => {
           // Initialize search tools
           const searchTools = createSearchTools(studyId);
-          
+
+          // Convert messages and validate
+          const convertedMessages = convertToModelMessages([message]);
+
           // Create the AI response stream using working v5 pattern
           const result = streamText({
             model: anthropic('claude-sonnet-4-20250514'),
             system: systemPrompt,
-            messages: convertToModelMessages([message]), // Convert UI message to model messages
+            messages: convertedMessages,
             
             // CRITICAL: Use stopWhen instead of deprecated maxSteps
-            stopWhen: stepCountIs(5), // Allows up to 5 tool execution steps
+            stopWhen: stepCountIs(10), // Allows up to 10 tool execution steps for multi-document analysis
             
             // Tool activation control
             experimental_activeTools: Object.keys(searchTools) as ('search_all_documents' | 'find_document_ids' | 'search_specific_documents')[],
@@ -210,14 +213,14 @@ export async function POST(req: NextRequest) {
             tools: searchTools,
             temperature: 0.0, // More deterministic to follow instructions exactly
             toolChoice: 'auto', // Let AI decide when to use tools
-            experimental_transform: smoothStream({ 
+            experimental_transform: smoothStream({
               chunking: 'word' // Word-level chunking for smooth rendering
             }),
           });
-          
+
           // CRITICAL: Must call consumeStream() for proper streaming
           result.consumeStream();
-          
+
           // CRITICAL: Merge AI stream with UI message stream
           dataStream.merge(result.toUIMessageStream({
             sendReasoning: true, // Include reasoning steps
@@ -302,7 +305,7 @@ export async function POST(req: NextRequest) {
             errorType: error instanceof Error ? error.constructor.name : 'UnknownError',
             errorMessage: error instanceof Error ? error.message : 'Unknown error',
           }, userId).catch(console.error);
-          
+
           return 'An error occurred while processing your request. Please try again.';
         },
       });
@@ -312,7 +315,7 @@ export async function POST(req: NextRequest) {
       
     } catch (streamError) {
       console.error('Streaming generation error:', streamError);
-      
+
       return Response.json(
         { error: 'AI response generation failed', details: sanitizeError(streamError).message, retryable: true },
         { status: 500 }
