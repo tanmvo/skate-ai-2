@@ -9,11 +9,13 @@ import {
   ServiceUnavailableError,
   RateLimitError 
 } from '@/lib/error-handling';
-import { 
+import {
   createSearchTools
 } from '@/lib/llm-tools/search-tools';
 import { trackChatEvent, trackSearchEvent, trackErrorEvent } from '@/lib/analytics/server-analytics';
 import { buildSystemPrompt } from '@/lib/prompts/templates/main-system-prompt';
+import { extractCitationsFromContent, extractSearchResultsFromToolCalls } from '@/lib/utils/citation-extraction';
+import type { SearchResult } from '@/lib/vector-search';
 
 // Types for tool call persistence
 interface AISDKv5MessagePart {
@@ -203,13 +205,13 @@ export async function POST(req: NextRequest) {
             model: anthropic('claude-sonnet-4-20250514'),
             system: systemPrompt,
             messages: convertedMessages,
-            
+
             // CRITICAL: Use stopWhen instead of deprecated maxSteps
             stopWhen: stepCountIs(10), // Allows up to 10 tool execution steps for multi-document analysis
-            
+
             // Tool activation control
             experimental_activeTools: Object.keys(searchTools) as ('search_all_documents' | 'find_document_ids' | 'search_specific_documents')[],
-            
+
             tools: searchTools,
             temperature: 0.0, // More deterministic to follow instructions exactly
             toolChoice: 'auto', // Let AI decide when to use tools
@@ -227,28 +229,35 @@ export async function POST(req: NextRequest) {
           }));
         },
         generateId: () => `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`, // Simple ID generator
-        onFinish: async ({ messages }) => {
+        onFinish: async ({ messages, writer: dataStream }) => {
           // Save all assistant messages to database with tool call persistence
           try {
             let totalToolCalls = 0;
-            
+
             for (const msg of messages) {
               if (msg.role === 'assistant') {
                 const messageParts = (msg as unknown as { parts?: AISDKv5MessagePart[] }).parts;
                 if (!messageParts?.length) continue;
-                
+
                 const toolCalls = extractToolCallsFromParts(messageParts);
                 totalToolCalls += toolCalls.length;
-                
+
                 const textContent = messageParts
                   .filter(part => part.type === 'text' && part.text)
                   .map(part => part.text!)
                   .join('').trim();
-                
+
                 // Response length tracking removed - not currently used
-                
+
                 if (!textContent && !toolCalls.length) continue;
-                
+
+                // NEW: Extract search results from tool calls for citation validation
+                // Re-run searches to get SearchResult[] objects (AI SDK serializes outputs to strings)
+                const searchResults = await extractSearchResultsFromToolCalls(toolCalls, studyId);
+
+                // NEW: Extract and validate citations from content
+                const citations = extractCitationsFromContent(textContent, searchResults);
+
                 // Re-validate chat ownership before saving assistant message
                 const chatExists = await validateChatOwnership(chatId);
 
@@ -263,11 +272,12 @@ export async function POST(req: NextRequest) {
                     content: textContent,
                     toolCalls: toolCalls.length > 0 ? JSON.parse(JSON.stringify(toolCalls)) : undefined,
                     messageParts: JSON.parse(JSON.stringify(messageParts)), // Full backup for debugging
+                    citations: Object.keys(citations).length > 0 ? JSON.parse(JSON.stringify(citations)) : undefined, // NEW
                     chatId: chatId,
                     studyId: studyId,
                   },
                 });
-                
+
                 // Track individual tool calls
                 for (const toolCall of toolCalls) {
                   await trackSearchEvent('tool_call_completed', {
@@ -278,11 +288,11 @@ export async function POST(req: NextRequest) {
                     processingTimeMs: Date.now() - toolCall.timestamp,
                   }, userId);
                 }
-                
-                console.log('Server-side: Saved assistant message with tool calls:', toolCalls.length);
+
+                console.log('Server-side: Saved assistant message with tool calls:', toolCalls.length, 'citations:', Object.keys(citations).length);
               }
             }
-            
+
             // Track AI response completed
             await trackChatEvent('ai_response_completed', {
               studyId,
@@ -290,7 +300,7 @@ export async function POST(req: NextRequest) {
               responseTimeMs: Date.now() - requestStartTime,
               toolCallsCount: totalToolCalls,
             }, userId);
-            
+
           } catch (error) {
             console.error('Server-side: Tool call persistence failed:', error);
             // Non-blocking - chat continues even if persistence fails

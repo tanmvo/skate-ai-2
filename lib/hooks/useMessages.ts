@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import type { UIMessage } from '@ai-sdk/react';
+import { CitationMap } from '@/lib/types/citations';
 
 interface DatabaseMessage {
   id: string;
@@ -8,6 +9,7 @@ interface DatabaseMessage {
   timestamp: string;
   toolCalls?: PersistedToolCall[] | null;
   messageParts?: AISDKv5MessagePart[] | null;
+  citations?: CitationMap | null; // NEW: Citation data
 }
 
 interface AISDKMessage {
@@ -15,6 +17,7 @@ interface AISDKMessage {
   role: 'user' | 'assistant';
   parts: Array<{ type: 'text'; text: string } | { type: `tool-${string}`; toolCallId: string; state: 'input-available' | 'output-available'; input?: Record<string, unknown>; output?: string | object; }>;
   createdAt: Date;
+  citations?: CitationMap; // NEW: Citation data
 }
 
 interface AISDKv5MessagePart {
@@ -92,14 +95,15 @@ async function fetchMessages(studyId: string, chatId: string): Promise<AISDKMess
   
   const dbMessages: DatabaseMessage[] = await response.json();
   
-  // Transform to AI SDK format with tool call reconstruction
+  // Transform to AI SDK format with tool call reconstruction and citations
   return dbMessages.map((msg) => ({
     id: msg.id,
     role: msg.role.toLowerCase() as 'user' | 'assistant',
-    parts: msg.role === 'ASSISTANT' && (msg.toolCalls || msg.messageParts) 
+    parts: msg.role === 'ASSISTANT' && (msg.toolCalls || msg.messageParts)
       ? reconstructMessageParts(msg.content, msg.toolCalls || null, msg.messageParts || null)
       : [{ type: 'text', text: msg.content }],
     createdAt: new Date(msg.timestamp),
+    citations: msg.citations || undefined, // NEW: Include citations if present
   })) as AISDKMessage[];
 }
 

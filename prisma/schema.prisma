@@ -93,6 +93,7 @@ model ChatMessage {
   content       String      @db.Text
   toolCalls     Json?       // NEW: Persisted tool call execution data
   messageParts  Json?       // NEW: Complete AI SDK v5 message parts (optional backup)
+  citations     Json?       // NEW: Citation mapping { "1": { documentId, documentName }, ... }
   timestamp     DateTime    @default(now())
   chatId        String
   chat          Chat        @relation(fields: [chatId], references: [id], onDelete: Cascade)

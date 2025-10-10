@@ -322,6 +322,8 @@ export function createSearchTools(studyId: string) {
         try {
           const result = await searchAllDocuments(query, studyId, { limit, minSimilarity });
           const formattedResult = formatSearchToolResults(result);
+
+          // Return formatted text for LLM (citation extraction will re-run search using input params)
           return formattedResult;
         } catch (error) {
           console.error('Search error:', error);
@@ -376,7 +378,7 @@ export function createSearchTools(studyId: string) {
 
         try {
           const result = await searchSpecificDocuments(query, studyId, documentIds, { limit, minSimilarity });
-        
+
           // Get study context for enhanced error messages
           let context: SearchContext | undefined;
           try {
@@ -389,8 +391,10 @@ export function createSearchTools(studyId: string) {
           } catch (error) {
             console.warn('Failed to get study context for error formatting:', error);
           }
-        
+
           const formattedResult = formatSearchToolResults(result, context);
+
+          // Return formatted text for LLM (citation extraction will re-run search using input params)
           return formattedResult;
         } catch (error) {
           console.error('Specific document search error:', error);

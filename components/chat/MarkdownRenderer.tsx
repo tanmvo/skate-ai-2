@@ -1,13 +1,90 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import rehypeRaw from "rehype-raw";
 import { cn } from "@/lib/utils";
 import type { Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
+import { CitationBadge } from "./CitationBadge";
+import { CitationMap } from "@/lib/types/citations";
+import { createDocumentNameLookup, parseStreamingCitations } from "@/lib/utils/citation-parsing";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { visit } from "unist-util-visit";
+import type { Plugin } from "unified";
+import type { Root, Text, PhrasingContent } from "mdast";
 
 interface MarkdownRendererProps {
   content: string;
+  citations?: CitationMap; // NEW: Citation data from database
   className?: string;
+}
+
+// Type definition for cite element props from remark plugin
+interface CiteElementProps {
+  'data-citation': string;
+  'data-doc': string;
+  node?: unknown;
+}
+
+// Remark plugin to transform ^[Doc.pdf] into custom citation nodes
+function remarkCitations(citationLookup: Map<string, { citationNumber: number; documentId: string }>) {
+  return () => {
+    return (tree: Root) => {
+      visit(tree, 'text', (node: Text, index, parent) => {
+        if (!node.value.includes('^[')) {
+          return;
+        }
+
+        // Split text by citation pattern
+        const parts: PhrasingContent[] = [];
+        const regex = /\^\[([^\]]+)\]/g;
+        let lastIndex = 0;
+        let match;
+
+        while ((match = regex.exec(node.value)) !== null) {
+          // Add text before citation
+          if (match.index > lastIndex) {
+            parts.push({
+              type: 'text',
+              value: node.value.substring(lastIndex, match.index)
+            });
+          }
+
+          const docName = match[1].trim();
+          const citationInfo = citationLookup.get(docName);
+
+          if (citationInfo) {
+            // Create a custom HTML node for the citation
+            parts.push({
+              type: 'html',
+              value: `<cite data-citation="${citationInfo.citationNumber}" data-doc="${docName}"></cite>`
+            });
+          } else {
+            // Keep original if not found
+            parts.push({
+              type: 'text',
+              value: match[0]
+            });
+          }
+
+          lastIndex = regex.lastIndex;
+        }
+
+        // Add remaining text
+        if (lastIndex < node.value.length) {
+          parts.push({
+            type: 'text',
+            value: node.value.substring(lastIndex)
+          });
+        }
+
+        // Replace the text node with the parts
+        if (parts.length > 0 && parent && typeof index === 'number') {
+          parent.children.splice(index, 1, ...parts);
+        }
+      });
+    };
+  };
 }
 
 const customComponents: Components = {
@@ -113,22 +190,82 @@ const customComponents: Components = {
 };
 
 export const MarkdownRenderer = memo(
-  ({ content, className }: MarkdownRendererProps) => (
-    <div className={cn(
-      "prose prose-sm lg:prose-base max-w-none dark:prose-invert",
-      "prose-headings:scroll-mt-20",
-      "prose-code:text-foreground",
-      className
-    )}>
-      <ReactMarkdown 
-        remarkPlugins={[remarkGfm]}
-        components={customComponents}
-      >
-        {content}
-      </ReactMarkdown>
-    </div>
-  ),
-  (prev, next) => prev.content === next.content
+  ({ content, citations, className }: MarkdownRendererProps) => {
+    // Create citation lookup and remark plugin
+    const { citationLookup, remarkPlugin } = useMemo(() => {
+      // If no validated citations from database, parse from content for real-time rendering
+      const effectiveCitations = citations && Object.keys(citations).length > 0
+        ? citations
+        : parseStreamingCitations(content);
+
+      // If still no citations found, skip citation processing
+      if (Object.keys(effectiveCitations).length === 0) {
+        return { citationLookup: new Map(), remarkPlugin: undefined };
+      }
+
+      const lookup = createDocumentNameLookup(effectiveCitations);
+      const plugin = remarkCitations(lookup);
+
+      return { citationLookup: lookup, remarkPlugin: plugin };
+    }, [citations, content]);
+
+    // Create custom components with citation rendering
+    const componentsWithCitations = useMemo(() => {
+      if (citationLookup.size === 0) {
+        return customComponents;
+      }
+
+      return {
+        ...customComponents,
+        // Handle custom cite elements created by the remark plugin
+        cite: (props: CiteElementProps) => {
+          // Parse and validate citation number
+          const citationNumber = parseInt(props['data-citation'], 10);
+          const documentName = props['data-doc'];
+
+          // Validate parsed number
+          if (isNaN(citationNumber) || citationNumber < 1) {
+            console.error('[MarkdownRenderer] Invalid citation number:', props['data-citation']);
+            return null; // Graceful degradation
+          }
+
+          // Validate document name exists
+          if (!documentName || documentName.trim() === '') {
+            console.error('[MarkdownRenderer] Missing document name for citation:', citationNumber);
+            return null; // Graceful degradation
+          }
+
+          return (
+            <CitationBadge
+              citationNumber={citationNumber}
+              documentName={documentName}
+              documentExists={true}
+            />
+          );
+        },
+      } as Components;
+    }, [citationLookup]);
+
+    return (
+      <TooltipProvider delayDuration={200}>
+        <div className={cn(
+          "prose prose-sm lg:prose-base max-w-none dark:prose-invert",
+          "prose-headings:scroll-mt-20",
+          "prose-code:text-foreground",
+          className
+        )}>
+          <ReactMarkdown
+            remarkPlugins={remarkPlugin ? [remarkGfm, remarkPlugin] : [remarkGfm]}
+            rehypePlugins={[rehypeRaw]}
+            components={componentsWithCitations}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
+      </TooltipProvider>
+    );
+  },
+  (prev, next) => prev.content === next.content && prev.citations === next.citations
 );
 
 MarkdownRenderer.displayName = "MarkdownRenderer";

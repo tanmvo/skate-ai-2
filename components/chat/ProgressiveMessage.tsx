@@ -8,10 +8,11 @@ import { MessageActions } from "@/components/chat/MessageActions";
 import { useToolProgress } from "@/lib/hooks/useToolProgress";
 import { AnimatePresence, motion } from "framer-motion";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { CitationMap } from "@/lib/types/citations";
 // Simplified for search-only approach - removed synthesis dependencies
 
 interface ProgressiveMessageProps {
-  message: UIMessage;
+  message: UIMessage & { citations?: CitationMap }; // NEW: Include citations
   persistenceError?: boolean;
   onRetryPersistence?: () => void;
   onCopy?: (text: string) => void;
@@ -72,7 +73,10 @@ export function ProgressiveMessage({
                   </div>
                   <div className="flex flex-col gap-4 w-full">
                     <div className="flex flex-col gap-4">
-                      <MarkdownRenderer content={part.text} />
+                      <MarkdownRenderer
+                        content={part.text}
+                        citations={message.citations}
+                      />
                     </div>
                     {/* Message Actions - only show on final text part */}
                     {!isLoading && showActions && (
@@ -194,12 +198,15 @@ export function ProgressiveMessage({
             {/* Simplified message rendering - extract content from parts */}
             {message.parts && message.parts.some(part => part.type === 'text' && part.text) && (
               <div className="flex flex-col gap-4">
-                <MarkdownRenderer content={
-                  message.parts
-                    ?.filter(part => part.type === 'text')
-                    .map(part => part.text)
-                    .join('') || ''
-                } />
+                <MarkdownRenderer
+                  content={
+                    message.parts
+                      ?.filter(part => part.type === 'text')
+                      .map(part => part.text)
+                      .join('') || ''
+                  }
+                  citations={message.citations}
+                />
               </div>
             )}
             
