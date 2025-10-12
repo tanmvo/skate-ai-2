@@ -6,6 +6,7 @@ import { DocumentPanel } from "@/components/document/DocumentPanel";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useRouter, useParams } from "next/navigation";
 import { StudyProvider, useStudyContext } from "@/lib/contexts/StudyContext";
+import { CitationProvider } from "@/lib/contexts/CitationContext";
 import { useDocuments } from "@/lib/hooks/useDocuments";
 import {
   DropdownMenu,
@@ -102,9 +103,11 @@ function StudyPageContent() {
           </div>
 
           <div className="flex-1">
-            <ChatPanel
-              studyId={study.id}
-            />
+            <CitationProvider studyId={study.id}>
+              <ChatPanel
+                studyId={study.id}
+              />
+            </CitationProvider>
           </div>
         </main>
       ) : (

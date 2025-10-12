@@ -6,12 +6,10 @@ import { cn } from "@/lib/utils";
 import type { Components } from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
 import { CitationBadge } from "./CitationBadge";
-import { CitationMap } from "@/lib/types/citations";
-import { createDocumentNameLookup, parseStreamingCitations } from "@/lib/utils/citation-parsing";
+import type { CitationMap } from "@/lib/types/citations";
+import { parseStreamingCitations } from "@/lib/utils/citation-parsing";
+import { useCitationParsing } from "@/lib/hooks/useCitationParsing";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { visit } from "unist-util-visit";
-import type { Plugin } from "unified";
-import type { Root, Text, PhrasingContent } from "mdast";
 
 interface MarkdownRendererProps {
   content: string;
@@ -24,67 +22,6 @@ interface CiteElementProps {
   'data-citation': string;
   'data-doc': string;
   node?: unknown;
-}
-
-// Remark plugin to transform ^[Doc.pdf] into custom citation nodes
-function remarkCitations(citationLookup: Map<string, { citationNumber: number; documentId: string }>) {
-  return () => {
-    return (tree: Root) => {
-      visit(tree, 'text', (node: Text, index, parent) => {
-        if (!node.value.includes('^[')) {
-          return;
-        }
-
-        // Split text by citation pattern
-        const parts: PhrasingContent[] = [];
-        const regex = /\^\[([^\]]+)\]/g;
-        let lastIndex = 0;
-        let match;
-
-        while ((match = regex.exec(node.value)) !== null) {
-          // Add text before citation
-          if (match.index > lastIndex) {
-            parts.push({
-              type: 'text',
-              value: node.value.substring(lastIndex, match.index)
-            });
-          }
-
-          const docName = match[1].trim();
-          const citationInfo = citationLookup.get(docName);
-
-          if (citationInfo) {
-            // Create a custom HTML node for the citation
-            parts.push({
-              type: 'html',
-              value: `<cite data-citation="${citationInfo.citationNumber}" data-doc="${docName}"></cite>`
-            });
-          } else {
-            // Keep original if not found
-            parts.push({
-              type: 'text',
-              value: match[0]
-            });
-          }
-
-          lastIndex = regex.lastIndex;
-        }
-
-        // Add remaining text
-        if (lastIndex < node.value.length) {
-          parts.push({
-            type: 'text',
-            value: node.value.substring(lastIndex)
-          });
-        }
-
-        // Replace the text node with the parts
-        if (parts.length > 0 && parent && typeof index === 'number') {
-          parent.children.splice(index, 1, ...parts);
-        }
-      });
-    };
-  };
 }
 
 const customComponents: Components = {
@@ -191,27 +128,19 @@ const customComponents: Components = {
 
 export const MarkdownRenderer = memo(
   ({ content, citations, className }: MarkdownRendererProps) => {
-    // Create citation lookup and remark plugin
-    const { citationLookup, remarkPlugin } = useMemo(() => {
-      // If no validated citations from database, parse from content for real-time rendering
-      const effectiveCitations = citations && Object.keys(citations).length > 0
+    // Determine effective citations (database citations take precedence over streaming)
+    const effectiveCitations = useMemo(() => {
+      return citations && Object.keys(citations).length > 0
         ? citations
         : parseStreamingCitations(content);
-
-      // If still no citations found, skip citation processing
-      if (Object.keys(effectiveCitations).length === 0) {
-        return { citationLookup: new Map(), remarkPlugin: undefined };
-      }
-
-      const lookup = createDocumentNameLookup(effectiveCitations);
-      const plugin = remarkCitations(lookup);
-
-      return { citationLookup: lookup, remarkPlugin: plugin };
     }, [citations, content]);
+
+    // Use citation parsing hook for memoized lookup and plugin
+    const { citationLookup, remarkPlugin, hasCitations } = useCitationParsing(effectiveCitations);
 
     // Create custom components with citation rendering
     const componentsWithCitations = useMemo(() => {
-      if (citationLookup.size === 0) {
+      if (!hasCitations) {
         return customComponents;
       }
 
@@ -235,16 +164,23 @@ export const MarkdownRenderer = memo(
             return null; // Graceful degradation
           }
 
+          // Get document ID from citation lookup
+          const citationInfo = citationLookup.get(documentName);
+          if (!citationInfo) {
+            console.error('[MarkdownRenderer] Citation info not found for:', documentName);
+            return null; // Graceful degradation
+          }
+
           return (
             <CitationBadge
               citationNumber={citationNumber}
               documentName={documentName}
-              documentExists={true}
+              documentId={citationInfo.documentId}
             />
           );
         },
       } as Components;
-    }, [citationLookup]);
+    }, [hasCitations, citationLookup]);
 
     return (
       <TooltipProvider delayDuration={200}>

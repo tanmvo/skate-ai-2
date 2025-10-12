@@ -8,7 +8,7 @@ import { MessageActions } from "@/components/chat/MessageActions";
 import { useToolProgress } from "@/lib/hooks/useToolProgress";
 import { AnimatePresence, motion } from "framer-motion";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { CitationMap } from "@/lib/types/citations";
+import type { CitationMap } from "@/lib/types/citations";
 // Simplified for search-only approach - removed synthesis dependencies
 
 interface ProgressiveMessageProps {
