@@ -158,8 +158,6 @@ export async function POST(req: NextRequest) {
         studyId,
         messageLength: userMessageLength,
       }, userId);
-      
-      console.log('Server-side: Saved user message');
     } catch (error) {
       console.error('Server-side: Failed to save user message:', error);
     }
@@ -284,8 +282,6 @@ export async function POST(req: NextRequest) {
                     processingTimeMs: Date.now() - toolCall.timestamp,
                   }, userId);
                 }
-
-                console.log('Server-side: Saved assistant message with tool calls:', toolCalls.length, 'citations:', Object.keys(citations).length);
               }
             }
 

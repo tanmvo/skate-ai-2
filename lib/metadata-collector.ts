@@ -155,21 +155,11 @@ export async function getDocumentMetadata(documentIds: string[]): Promise<Docume
 
 export async function getMetadataContext(studyId: string): Promise<MetadataContext | null> {
   try {
-    console.log('📋 Getting metadata context for study:', studyId);
     const studyMetadata = await getStudyMetadata(studyId);
 
     if (!studyMetadata) {
-      console.log('❌ No study metadata found for:', studyId);
       return null;
     }
-
-    console.log('📄 All documents in study metadata:', studyMetadata.documents.map(d => ({
-      id: d.id,
-      fileName: d.fileName,
-      status: d.status,
-      hasEmbeddings: d.hasEmbeddings,
-      chunkCount: d.chunkCount
-    })));
 
     const availableDocuments = studyMetadata.documents.filter(doc =>
       doc.status === 'READY' && doc.hasEmbeddings
@@ -178,12 +168,6 @@ export async function getMetadataContext(studyId: string): Promise<MetadataConte
     const readyDocuments = studyMetadata.documents.filter(doc =>
       doc.status === 'READY'
     ).length;
-
-    console.log('✅ Available documents after filtering:', availableDocuments.map(d => ({
-      id: d.id,
-      fileName: d.fileName,
-      chunkCount: d.chunkCount
-    })));
 
     return {
       study: studyMetadata,

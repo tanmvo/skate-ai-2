@@ -43,7 +43,6 @@ export function extractCitationsFromContent(
 
     // STRICT VALIDATION: Only accept citations that match search results
     if (!validDocuments.has(documentName)) {
-      console.warn(`[Citation Extraction] Invalid citation detected: "${documentName}" not in search results`);
       continue; // Skip hallucinated citations
     }
 
@@ -67,8 +66,6 @@ export function extractCitationsFromContent(
     };
   });
 
-  console.log(`[Citation Extraction] Assigned ${sortedDocuments.length} citations deterministically (sorted alphabetically)`);
-
   return citationMap;
 }
 
@@ -89,13 +86,10 @@ export async function extractSearchResultsFromToolCalls(
 ): Promise<SearchResult[]> {
   const searchToolCalls = toolCalls.filter(t => t.toolName.startsWith('search_'));
 
-  console.log(`[Citation Extraction] Re-running ${searchToolCalls.length} tool calls in parallel to extract search results`);
-
   // Build array of search promises for parallel execution
-  const searchPromises = searchToolCalls.map(async (tc, index) => {
+  const searchPromises = searchToolCalls.map(async (tc) => {
     try {
       if (!tc.input) {
-        console.warn(`[Citation Extraction] Tool call ${index + 1}/${searchToolCalls.length} missing input:`, tc.toolName);
         return { success: false, results: [], toolName: tc.toolName };
       }
 
@@ -104,11 +98,8 @@ export async function extractSearchResultsFromToolCalls(
       const minSimilarity = (tc.input.minSimilarity as number) || 0.1;
 
       if (!query) {
-        console.warn(`[Citation Extraction] Tool call ${index + 1}/${searchToolCalls.length} missing query:`, tc.toolName);
         return { success: false, results: [], toolName: tc.toolName };
       }
-
-      console.log(`[Citation Extraction] Re-running search ${index + 1}/${searchToolCalls.length}: ${tc.toolName} with query: "${query}"`);
 
       // Re-run the search to get SearchResult[] objects
       const searchOptions = {
@@ -121,26 +112,16 @@ export async function extractSearchResultsFromToolCalls(
       };
 
       const results = await findRelevantChunks(query, searchOptions);
-      console.log(`[Citation Extraction] ✓ Search ${index + 1}/${searchToolCalls.length} found ${results.length} results for query: "${query}"`);
 
       return { success: true, results, toolName: tc.toolName };
 
     } catch (error) {
-      console.error(`[Citation Extraction] ✗ Search ${index + 1}/${searchToolCalls.length} failed for ${tc.toolName}:`, error instanceof Error ? error.message : error);
       return { success: false, results: [], toolName: tc.toolName, error };
     }
   });
 
   // Execute all searches in parallel
   const searchResponses = await Promise.all(searchPromises);
-
-  // Calculate success rate for monitoring
-  const successfulSearches = searchResponses.filter(r => r.success).length;
-  const failedSearches = searchResponses.filter(r => !r.success).length;
-
-  if (failedSearches > 0) {
-    console.warn(`[Citation Extraction] ${failedSearches}/${searchToolCalls.length} searches failed. Proceeding with partial results from ${successfulSearches} successful searches.`);
-  }
 
   // Flatten and deduplicate results from successful searches
   const allResults: SearchResult[] = [];
@@ -157,8 +138,6 @@ export async function extractSearchResultsFromToolCalls(
     }
   });
 
-  console.log(`[Citation Extraction] Successfully extracted ${allResults.length} unique search results (${successfulSearches}/${searchToolCalls.length} searches succeeded)`);
-
   return allResults;
 }
 
@@ -174,14 +153,12 @@ export function validateCitationMap(citations: CitationMap): boolean {
 
   // Check if all keys are numeric strings
   if (!keys.every(key => /^\d+$/.test(key))) {
-    console.warn('[Citation Extraction] Invalid citation numbers found');
     return false;
   }
 
   // Check if values have required fields
-  for (const [num, data] of Object.entries(citations)) {
+  for (const data of Object.values(citations)) {
     if (!data.documentId || !data.documentName) {
-      console.warn(`[Citation Extraction] Missing data for citation ${num}`);
       return false;
     }
   }
