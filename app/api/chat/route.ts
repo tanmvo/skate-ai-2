@@ -15,9 +15,6 @@ import {
 import { trackChatEvent, trackSearchEvent, trackErrorEvent } from '@/lib/analytics/server-analytics';
 import { buildSystemPrompt } from '@/lib/prompts/templates/main-system-prompt';
 import { extractCitationsFromContent, extractSearchResultsFromToolCalls } from '@/lib/utils/citation-extraction';
-import type { SearchResult } from '@/lib/vector-search';
-
-// Types for tool call persistence
 interface AISDKv5MessagePart {
   type: string;
   text?: string;
@@ -229,8 +226,7 @@ export async function POST(req: NextRequest) {
           }));
         },
         generateId: () => `msg_${Date.now()}_${Math.random().toString(36).slice(2)}`, // Simple ID generator
-        onFinish: async ({ messages, writer: dataStream }) => {
-          // Save all assistant messages to database with tool call persistence
+        onFinish: async ({ messages }) => {
           try {
             let totalToolCalls = 0;
 
