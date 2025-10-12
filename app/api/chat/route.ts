@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
             experimental_activeTools: Object.keys(searchTools) as ('search_all_documents' | 'find_document_ids' | 'search_specific_documents')[],
 
             tools: searchTools,
-            temperature: 0.0, // More deterministic to follow instructions exactly
+            temperature: 0.3, // Slightly higher for more focused, less verbose responses while maintaining accuracy
             toolChoice: 'auto', // Let AI decide when to use tools
             experimental_transform: smoothStream({
               chunking: 'word' // Word-level chunking for smooth rendering

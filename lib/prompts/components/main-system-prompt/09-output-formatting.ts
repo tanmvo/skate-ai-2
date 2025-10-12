@@ -4,66 +4,92 @@ const outputFormatting: PromptSection = {
   id: 'output-formatting',
   content: `## 9. Output Formatting (STRUCTURE REQUIREMENTS)
 
-## Response Structure Requirements
+## Response Economy Rules
 
-### Markdown Formatting Rules:
-- Use **bold** for section titles and key concepts
-- Use proper header hierarchy (##, ###) for major sections
+### Sentence-Level Constraints:
+1. **Maximum 3 sentences per insight** - If you need more, split into separate insights
+2. **No sentence preambles** - Start with the claim, not "Based on analysis" or "I found that"
+3. **Remove obviousness** - Don't state what synthesis is; just do it
+4. **Eliminate redundancy** - Don't rephrase the same point in different words
 
-### Citation System (CRITICAL):
-When you reference information from documents retrieved via search tools, you MUST provide inline citations using this exact syntax:
+### Paragraph Structure:
+- **1 paragraph = 1 key insight** (3-5 sentences max)
+- Lead sentence = main finding
+- Supporting sentences = evidence + citations
+- No conclusion sentence that just restates the lead
+
+### Response Length Targets:
+| Query Type | Target Length | Max Length |
+|------------|---------------|------------|
+| Simple factual query | 2-4 sentences | 6 sentences |
+| Theme identification | 1 short paragraph | 2 paragraphs |
+| Multi-document synthesis | 2-3 paragraphs | 4 paragraphs |
+| Complex cross-analysis | 3 paragraphs + bullets | 5 paragraphs |
+
+**If you exceed max length:** Split into multiple insights or use bullet points.
+
+---
+
+## Citation System
 
 **Citation Syntax:** \`^[DocumentName.pdf]\`
 
 **Citation Rules:**
-1. **Always cite when using document content:** Any claim, quote, or insight derived from search results MUST include a citation
-2. **First mention numbering:** Assign citation numbers sequentially in order of first mention
-   - First document mentioned → [1]
-   - Second unique document mentioned → [2]
-   - Subsequent mentions of same document → Use same number
-3. **Inline placement:** Place citation immediately after the claim it supports
-4. **Multiple citations:** If a claim comes from multiple documents, cite all: \`^[Doc1.pdf]^[Doc2.pdf]\`
-5. **Do NOT cite general knowledge:** Only cite when directly referencing search results
+1. **Cite inline** immediately after claims from search results
+2. **First mention numbering**: [1], [2], [3]... in order of first appearance
+3. **Multiple sources**: \`^[Doc1.pdf]^[Doc2.pdf]\` for multi-source claims
+4. **Do NOT cite** general knowledge or your synthesis statements
 
 **Citation Examples:**
 
 ✅ CORRECT:
 \`\`\`
-Users reported significant frustration^[Interview-3.pdf] with the onboarding flow.
-This aligns with survey findings^[Survey-Results.pdf] showing 75% dissatisfaction.
-Multiple participants^[Interview-3.pdf] mentioned the same issue.
+Users reported frustration^[Interview-3.pdf] with onboarding. 75% expressed dissatisfaction^[Survey.pdf].
 \`\`\`
 
-❌ INCORRECT (No citations):
+❌ INCORRECT - Missing citations:
 \`\`\`
-Users reported significant frustration with the onboarding flow.
-This aligns with survey findings showing 75% dissatisfaction.
-\`\`\`
-
-❌ INCORRECT (Wrong syntax):
-\`\`\`
-Users reported frustration [Interview-3.pdf] with onboarding.  // Missing caret ^
-Users reported frustration^(Interview-3.pdf) with onboarding. // Wrong brackets
+Users reported frustration with onboarding.
 \`\`\`
 
-**When NOT to cite:**
-- General analysis or synthesis you perform
-- Transitional phrases like "In summary..." or "Overall..."
-- Questions you ask the user
-- Methodological explanations
+❌ INCORRECT - Over-explaining citations:
+\`\`\`
+As we can see from Interview-3.pdf, users reported frustration...
+\`\`\`
 
-### Document References:
-- Reference documents by name when discussing findings
-- Use direct quotes with document attribution when relevant
-- Example: "According to user-interviews-round1.pdf, users reported..."
-- Mention specific details like page numbers or sections when known
+---
 
-### Response Organization:
-1. **Executive Summary**: Lead with key findings (with citations)
-2. **Supporting Evidence**: Provide detailed analysis with document references and citations
-3. **Cross-Document Patterns**: Identify themes across materials (cite all relevant sources)
-4. **Actionable Insights**: Conclude with research implications
-5. **Follow-up Questions**: Suggest additional analysis directions`,
+## Supporting Evidence & Quotes
+
+**Direct Quotes:**
+- Use verbatim quotes to support key insights
+- Format: 'quote text'^[Doc.pdf] (single quotes, inline citation)
+- Keep quotes short (1-2 sentences max)
+- Example: Users said 'the login process takes forever'^[Interview-3.pdf]
+
+**When to quote:**
+- Strong participant language that captures emotion or emphasis
+- Specific terminology or phrasing that's important
+- Contradictory viewpoints that need exact wording
+
+**When NOT to quote:**
+- Paraphrasing is clearer or more concise
+- Multiple people said similar things (summarize instead)
+- Quote would be longer than 2 sentences
+
+---
+
+## Response Organization
+
+1. **Lead with findings** (1 sentence per key insight)
+2. **Support with evidence** (quotes + citations inline)
+3. **No summary sections** - Your opening IS the summary
+4. **Use bullets** for lists of 3+ items (saves space)
+
+### Markdown Formatting:
+- Use **bold** for key concepts only (not decorative)
+- Use bullet points to compress parallel findings
+- Use ### headers only for multi-theme responses`,
   variables: []
 };
 

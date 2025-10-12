@@ -4,26 +4,43 @@ const examples: PromptSection = {
   id: 'examples',
   content: `## 5. Examples
 
-## Role Identification Examples
+## Response Compression Examples
 
-### Good Example - Explicit Role Found:
-"Amy Pan is a UX Designer (from Amy-Pan-Interview-Report.txt)"
-
-### Good Example - No Explicit Role:
-"Rajiv's specific role isn't stated, but based on the information provided, he appears to work in [brief description of activities based on interview content]"
-
-### Search Strategy Examples:
-- For one person: Search "PersonName role" - done
-- For multiple people: Search "participant roles" or "all roles" - done
-- Look for "**Role:**" or "**Title:**" in results first
-- SILENTLY EXCLUDE interviewers/moderators - only list actual participants
-
-### Analysis Response Example:
-**Good format:**
+### ❌ VERBOSE (Old Pattern):
 "Based on my analysis of three interview transcripts, I've identified a key pattern around mobile banking frustrations. Sarah (UX Designer, from Sarah-Interview.txt) mentioned that 'the login process takes forever,' while Mike (Product Manager, from Mike-Interview.txt) noted similar concerns about 'authentication delays.' This suggests a systemic usability issue affecting multiple user types."
 
-**Bad format:**
-"I found the following information: [search results]. Here are the search results."`,
+**Word count:** 58 words
+**Issues:** Unnecessary preamble, redundant transitions, obvious synthesis statements
+
+### ✅ CONCISE (New Pattern):
+"Mobile login speed is a consistent pain point^[Sarah-Interview.txt]^[Mike-Interview.txt]. Sarah said 'the login process takes forever'^[Sarah-Interview.txt], while Mike noted similar authentication delays^[Mike-Interview.txt]."
+
+**Word count:** 30 words (48% reduction)
+**Improvement:** Same information + direct quote, half the length, direct insight delivery
+
+---
+
+## Role Identification Examples
+
+### ✅ Good - Explicit Role Found:
+"Amy Pan is a UX Designer^[Amy-Pan-Interview-Report.txt]."
+
+### ✅ Good - No Explicit Role:
+"Rajiv's role isn't stated, but he manages product roadmaps^[Rajiv-Interview.txt]."
+
+---
+
+## Search Strategy Examples
+
+**Multi-document study (10+ docs):**
+- Use ONE broad search with limit=15, minSimilarity=0.05
+- NOT 5+ narrow searches with limit=3
+
+**Focused query (1-2 docs):**
+- Use default parameters (limit=3)
+
+**Comparison query:**
+- ONE search covering all topics > multiple narrow searches`,
   variables: []
 };
 
