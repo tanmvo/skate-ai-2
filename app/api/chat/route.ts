@@ -36,6 +36,7 @@ interface PersistedToolCall {
 }
 import { buildStudyContext } from '@/lib/metadata-context';
 import { getCachedData, studyContextKey } from '@/lib/metadata-cache';
+import { fetchMessageHistory, logMessageHistory } from '@/lib/chat/message-history';
 
 // Tool call extraction function
 function extractToolCallsFromParts(parts: AISDKv5MessagePart[]): PersistedToolCall[] {
@@ -162,6 +163,10 @@ export async function POST(req: NextRequest) {
       console.error('Server-side: Failed to save user message:', error);
     }
 
+    // Fetch conversation history for context
+    const messageHistory = await fetchMessageHistory(chatId);
+    logMessageHistory(messageHistory);
+
     // Get study metadata context (with caching)
     let studyContext = '';
     
@@ -192,14 +197,16 @@ export async function POST(req: NextRequest) {
           // Initialize search tools
           const searchTools = createSearchTools(studyId);
 
-          // Convert messages and validate
-          const convertedMessages = convertToModelMessages([message]);
+          // Convert history and current message to model format
+          const historyAsModelMessages = convertToModelMessages(messageHistory);
+          const currentUserMessage = convertToModelMessages([message])[0];
+          const allMessages = [...historyAsModelMessages, currentUserMessage];
 
           // Create the AI response stream using working v5 pattern
           const result = streamText({
             model: anthropic('claude-sonnet-4-20250514'),
             system: systemPrompt,
-            messages: convertedMessages,
+            messages: allMessages,
 
             // CRITICAL: Use stopWhen instead of deprecated maxSteps
             stopWhen: stepCountIs(10), // Allows up to 10 tool execution steps for multi-document analysis

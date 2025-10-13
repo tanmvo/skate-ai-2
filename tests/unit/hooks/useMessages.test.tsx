@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { reconstructMessageParts } from '@/lib/hooks/useMessages';
+import { reconstructMessageParts } from '@/lib/utils/message-parts';
 
 interface AISDKv5MessagePart {
   type: string;

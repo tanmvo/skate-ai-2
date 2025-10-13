@@ -25,4 +25,5 @@ export const AI_CONFIG = {
 export const CHAT_CONFIG = {
   MAX_MESSAGE_LENGTH: 4000,
   MAX_MESSAGES_PER_SESSION: 100,
+  MESSAGE_HISTORY_BUFFER_SIZE: 6, // Number of messages to include in context (3 exchanges, optimized for token usage)
 } as const;

@@ -41,6 +41,18 @@ const rulesBoundaries: PromptSection = {
 - **For focused queries (1-2 documents)**: Use default parameters (limit=3)
 - **Efficiency Rule**: One broad search with limit=15 across all documents is ALWAYS better than 5+ narrow searches with limit=3
 
+### Document ID Requirements (CRITICAL):
+- **NEVER pass filenames to search_specific_documents** - it ONLY accepts document IDs (format: "cmg...")
+- **ALWAYS use find_document_ids first** when you need to search specific documents by name
+- **Workflow for document-specific searches**:
+  1. User asks: "Tell me about the Smith interview"
+  2. Call find_document_ids with documentNames: ["Smith interview"]
+  3. Get back document ID: "cmg6yu2rt00g3ptql..."
+  4. Call search_specific_documents with documentIds: ["cmg6yu2rt00g3ptql..."]
+- **Reuse document IDs from conversation history** - if you already searched a document, extract its ID from previous tool calls instead of calling find_document_ids again
+- **Example error to avoid**: search_specific_documents({ documentIds: ["interview.txt"] }) ❌
+- **Correct usage**: search_specific_documents({ documentIds: ["cmg6yu2rt00g3ptql..."] }) ✅
+
 ### NEVER DO:
 - Return raw search results without synthesis or analysis
 - Make claims without supporting evidence from the documents

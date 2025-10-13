@@ -1,6 +1,7 @@
 import useSWR from 'swr';
 import type { UIMessage } from '@ai-sdk/react';
 import { CitationMap } from '@/lib/types/citations';
+import { reconstructMessageParts } from '@/lib/utils/message-parts';
 
 interface DatabaseMessage {
   id: string;
@@ -38,52 +39,6 @@ interface PersistedToolCall {
   timestamp: number;
   query?: string;
   resultCount?: number;
-}
-
-// Message parts reconstruction function
-export function reconstructMessageParts(
-  content: string, 
-  toolCalls: PersistedToolCall[] | null,
-  originalParts: AISDKv5MessagePart[] | null
-): AISDKv5MessagePart[] {
-  // If we have original parts, use them but fix the state for tool calls
-  if (originalParts && Array.isArray(originalParts) && originalParts.length > 0) {
-    return originalParts.map(part => {
-      // For tool parts, ensure they show as completed for historical messages
-      if (part.type?.startsWith('tool-') && part.toolCallId) {
-        return {
-          ...part,
-          state: 'output-available' // Always completed for historical messages
-        };
-      }
-      return part;
-    });
-  }
-  
-  // Fallback: reconstruct from tool calls if original parts not available
-  const parts: AISDKv5MessagePart[] = [];
-  
-  // Add tool call parts in chronological order (ONLY completed ones)
-  if (toolCalls?.length) {
-    const sortedToolCalls = [...toolCalls].sort((a, b) => a.timestamp - b.timestamp);
-    
-    sortedToolCalls.forEach(tool => {
-      parts.push({
-        type: `tool-${tool.toolName}`,
-        toolCallId: tool.toolCallId,
-        state: 'output-available', // Always completed for historical messages
-        input: tool.input || {},
-        output: tool.output || ''
-      });
-    });
-  }
-  
-  // Text content part comes after tool calls
-  if (content?.trim()) {
-    parts.push({ type: 'text', text: content });
-  }
-  
-  return parts;
 }
 
 async function fetchMessages(studyId: string, chatId: string): Promise<AISDKMessage[]> {
