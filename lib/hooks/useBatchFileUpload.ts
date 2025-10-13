@@ -255,7 +255,7 @@ export function useBatchFileUpload(): UseBatchFileUploadReturn {
 
       throw error;
     }
-  }, [mutateBatchStatus]);
+  }, [mutateBatchStatus, globalMutate]);
 
   const cancelBatch = useCallback(() => {
     if (batchState.batchId) {

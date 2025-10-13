@@ -1,7 +1,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { toast } from "sonner";
-import { sanitizeError, calculateRetryDelay, sleep, RetryState } from "@/lib/error-handling";
+import { sanitizeError, calculateRetryDelay, RetryState } from "@/lib/error-handling";
 
 interface UseChatStreamProps {
   currentChatId: string | null;
@@ -26,7 +26,8 @@ export function useChatStream({
   onResetRetryState,
   onSetStreamError,
   onSetPendingMessage,
-  onSetRetryState,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  onSetRetryState: _onSetRetryState,
   onPerformRetry,
   onGenerateTitle,
 }: UseChatStreamProps) {
